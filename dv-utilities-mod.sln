@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.33328.57
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilitiesMod", "UtilitiesMod\UtilitiesMod.csproj", "{AB5DF3EE-91F2-4296-8959-3B1A2232EE90}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AB5DF3EE-91F2-4296-8959-3B1A2232EE90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB5DF3EE-91F2-4296-8959-3B1A2232EE90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB5DF3EE-91F2-4296-8959-3B1A2232EE90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB5DF3EE-91F2-4296-8959-3B1A2232EE90}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DFBCC620-89B0-4234-8C51-C76EA2A2C60C}
+	EndGlobalSection
+EndGlobal
