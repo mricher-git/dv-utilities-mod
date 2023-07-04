@@ -7,7 +7,9 @@ using DV.InventorySystem;
 using DV.RemoteControls;
 using DV.ThingTypes;
 using DV.Simulation.Cars;
+using LocoSim.Implementations;
 using UnityEngine;
+using HarmonyLib;
 
 namespace UtilitiesMod
 {
@@ -15,7 +17,7 @@ namespace UtilitiesMod
     {
         public const string Guid = "UtilitiesMod";
         public const string Name = "Utilities Mod";
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.0";
     }
 
     [BepInPlugin(PluginInfo.Guid, PluginInfo.Name, PluginInfo.Version)]
@@ -27,6 +29,7 @@ namespace UtilitiesMod
         private static bool showGui = false;
         private static GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
         private GameObject DE6Prefab;
+        private GameObject CommsPrefab;
 
         public void Awake()
         {
@@ -42,6 +45,8 @@ namespace UtilitiesMod
             Instance.Config.SaveOnConfigSet = true;
             DE6Prefab = Utils.FindPrefab("LocoDE6");
             if (DE6Prefab == null) Logger.LogFatal("DE6 Prefab not found");
+            CommsPrefab = Utils.FindPrefab("CommsRadio");
+            if (CommsPrefab == null) Logger.LogFatal("CommsRadio not found");
             WorldStreamingInit.LoadingFinished += OnLoadingFinished;
             if (Settings.RemoteControlDE6.Value)
             {
@@ -57,6 +62,8 @@ namespace UtilitiesMod
         private void OnLoadingFinished()
         {
             if (Settings.DisableDerailment.Value) disableDerail();
+            if (Settings.FreeCaboose.Value) enableFreeCaboose();
+            if (Settings.CommsRadioSpawner.Value) enableCommsSpawner();
         }
 
         void OnGUI()
@@ -206,6 +213,36 @@ namespace UtilitiesMod
                     }
                 }
                 GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool freeCaboose = GUILayout.Toggle(Settings.FreeCaboose.Value, "Free Caboose");
+                if (freeCaboose != Settings.FreeCaboose.Value)
+                {
+                    Settings.FreeCaboose.Value = freeCaboose;
+                    if (freeCaboose)
+                    {
+                        enableFreeCaboose();
+                    }
+                    else
+                    {
+                        disableFreeCaboose();
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool commsSpawner = GUILayout.Toggle(Settings.CommsRadioSpawner.Value, "Comms Radio Spawner");
+                if (commsSpawner != Settings.CommsRadioSpawner.Value)
+                {
+                    Settings.CommsRadioSpawner.Value = commsSpawner;
+                    if (commsSpawner)
+                    {
+                        enableCommsSpawner();
+                    }
+                    else
+                    {
+                        disableCommsSpawner();
+                    }
+                }
+                GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
 
                 GUILayout.EndVertical();
@@ -226,6 +263,14 @@ namespace UtilitiesMod
                     var remote = DE6Prefab.AddComponent<RemoteControllerModule>();
                     DE6Prefab.GetComponent<SimController>().remoteController = remote;
                 }
+                foreach (var sc in FindObjectsOfType<SimController>())
+                {
+                    if (sc.name == "LocoDE6(Clone)" && sc.GetComponent<RemoteControllerModule>() == null)
+                    {
+                        var rcm = sc.gameObject.AddComponent<RemoteControllerModule>();
+                        rcm.Init(Traverse.Create(sc).Field("train").GetValue() as TrainCar, sc.wheelslipController, sc.controlsOverrider, sc.simFlow);
+                    }
+                }
             }
         }
 
@@ -239,8 +284,22 @@ namespace UtilitiesMod
             {
                 if (DE6Prefab.GetComponent<RemoteControllerModule>() != null)
                 {
-                    Object.Destroy(DE6Prefab.GetComponent<RemoteControllerModule>());
+                    Destroy(DE6Prefab.GetComponent<RemoteControllerModule>());
                     DE6Prefab.GetComponent<SimController>().remoteController = null;
+                }
+                foreach (var sc in FindObjectsOfType<SimController>())
+                {
+                    if (sc.name == "LocoDE6(Clone)" && sc.TryGetComponent<RemoteControllerModule>(out RemoteControllerModule rcm))
+                    {
+                        Logger.LogInfo("Found DE6");
+                        LocomotiveRemoteController lrc = Traverse.Create(rcm).Field("pairedLocomotiveRemote").GetValue() as LocomotiveRemoteController;
+                        if (lrc != null)
+                        {
+                            Logger.LogInfo("Unpairing remote");
+                            Traverse.Create(lrc).Method("Unpair").GetValue();
+                        }
+                        Destroy(rcm);
+                    }
                 }
             }
         }
@@ -254,6 +313,41 @@ namespace UtilitiesMod
         {
             Globals.G.GameParams.DerailStressThreshold = Globals.G.GameParams.defaultStressThreshold;
         }
+
+        private void enableFreeCaboose()
+        {
+            Globals.G.GameParams.WorkTrainSummonMaxPrice = 0;
+        }
+
+        private void disableFreeCaboose()
+        {
+            Globals.G.GameParams.WorkTrainSummonMaxPrice = float.PositiveInfinity;
+        }
+        private void enableCommsSpawner()
+        {
+            var radioCont = CommsPrefab.GetComponent<CommsRadioController>();
+            radioCont.cheatModeOverride = true;
+            if (radioCont.isActiveAndEnabled) radioCont.UpdateModesAvailability();
+
+            foreach (var rc in FindObjectsOfType<CommsRadioController>())
+            {
+                rc.cheatModeOverride = true;
+                rc.UpdateModesAvailability();
+            }
+        }
+
+        private void disableCommsSpawner()
+        {
+            var radioCont = CommsPrefab.GetComponent<CommsRadioController>();
+            radioCont.cheatModeOverride = false;
+            if (radioCont.isActiveAndEnabled) radioCont.UpdateModesAvailability();
+
+            foreach (var rc in FindObjectsOfType<CommsRadioController>())
+            {
+                rc.cheatModeOverride = false;
+                rc.UpdateModesAvailability();
+            }
+        }
     }
 
     public class UtilitiesModSettings
@@ -262,11 +356,15 @@ namespace UtilitiesMod
 
         public readonly ConfigEntry<bool> DisableDerailment;
         public readonly ConfigEntry<bool> RemoteControlDE6;
+        public readonly ConfigEntry<bool> FreeCaboose;
+        public readonly ConfigEntry<bool> CommsRadioSpawner;
 
         public UtilitiesModSettings(UtilitiesMod plugin)
         {
             DisableDerailment = plugin.Config.Bind(CHEATS_SECTION, "DisableDerailment", false, "Disable Derailment");
             RemoteControlDE6 = plugin.Config.Bind(CHEATS_SECTION, "RemoteControlDE6", false, "Enabled Remote Controller for DE6");
+            FreeCaboose = plugin.Config.Bind(CHEATS_SECTION, "FreeCaboose", false, "Allows spawning Caboose for free");
+            CommsRadioSpawner = plugin.Config.Bind(CHEATS_SECTION, "CommsRadioSpawner", false, "Allows spawning and cargo from comms menu");
         }
     }
 

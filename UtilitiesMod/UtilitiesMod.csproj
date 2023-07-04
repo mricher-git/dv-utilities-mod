@@ -47,6 +47,10 @@
       <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\DerailValley_Data\Managed\DV.Inventory.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="DV.Simulation">
+      <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\DerailValley_Data\Managed\DV.Simulation.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="DV.ThingTypes">
       <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\DerailValley_Data\Managed\DV.ThingTypes.dll</HintPath>
       <Private>False</Private>
