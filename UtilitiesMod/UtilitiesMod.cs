@@ -31,7 +31,6 @@ namespace UtilitiesMod
         private static bool showGui = false;
         private static GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
         private static GameObject DE6Prefab;
-        //private static GameObject CommsPrefab;
         private static float RerailMaxPrice;
         private static float DeleteCarMaxPrice;
         private static float WorkTrainSummonMaxPrice;
@@ -52,8 +51,6 @@ namespace UtilitiesMod
 
             DE6Prefab = Utils.FindPrefab("LocoDE6");
             if (DE6Prefab == null) Logger.LogFatal("DE6 Prefab not found");
-            //CommsPrefab = Utils.FindPrefab("CommsRadio");
-            //if (CommsPrefab == null) Logger.LogFatal("CommsRadio not found");
 
             WorldStreamingInit.LoadingFinished += OnLoadingFinished;
             UnloadWatcher.UnloadRequested += UnloadRequested;
@@ -131,7 +128,6 @@ namespace UtilitiesMod
                     GUILayout.BeginHorizontal();
                     if (GUILayout.Button("> $1k"))
                     {
-                        //double playerMoney = SingletonBehaviour<Inventory>.Instance.PlayerMoney;
                         SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000);
                     }
                     if (GUILayout.Button("> $10k"))
@@ -150,7 +146,6 @@ namespace UtilitiesMod
                     GUILayout.BeginHorizontal();
                     if (GUILayout.Button("< $1k"))
                     {
-                        //double playerMoney = SingletonBehaviour<Inventory>.Instance.PlayerMoney;
                         SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000);
                     }
                     if (GUILayout.Button("< $10k"))
@@ -376,9 +371,6 @@ namespace UtilitiesMod
         }
         private void enableCommsSpawner()
         {
-            //var radioCont = CommsPrefab.GetComponent<CommsRadioController>();
-            //radioCont.cheatModeOverride = true;
-
             foreach (var rc in Resources.FindObjectsOfTypeAll<CommsRadioController>())
             {
                 rc.cheatModeOverride = true;
@@ -388,14 +380,10 @@ namespace UtilitiesMod
 
         private void disableCommsSpawner()
         {
-            //var radioCont = CommsPrefab.GetComponent<CommsRadioController>();
-            //radioCont.cheatModeOverride = false;
-            //if (radioCont.isActiveAndEnabled) radioCont.UpdateModesAvailability();
-
             foreach (var rc in Resources.FindObjectsOfTypeAll<CommsRadioController>())//FindObjectsOfType<CommsRadioController>())
             {
                 rc.cheatModeOverride = false;
-                rc.UpdateModesAvailability();
+                if (rc.gameObject.scene.name != null) rc.UpdateModesAvailability();
             }
         }
 
