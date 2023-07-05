@@ -10,6 +10,7 @@ using DV.Simulation.Cars;
 using LocoSim.Implementations;
 using UnityEngine;
 using HarmonyLib;
+using System.Collections;
 
 namespace UtilitiesMod
 {
@@ -28,10 +29,10 @@ namespace UtilitiesMod
         public static UtilitiesModSettings Settings { get; private set; }
         private static bool showGui = false;
         private static GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
-        private GameObject DE6Prefab;
-        private GameObject CommsPrefab;
+        public static GameObject DE6Prefab;
+        public static GameObject CommsPrefab;
 
-        public void Awake()
+        public void Start()
         {
             if (Instance != null)
             {
@@ -43,15 +44,28 @@ namespace UtilitiesMod
             Instance = this;
             Settings = new UtilitiesModSettings(this);
             Instance.Config.SaveOnConfigSet = true;
+
             DE6Prefab = Utils.FindPrefab("LocoDE6");
             if (DE6Prefab == null) Logger.LogFatal("DE6 Prefab not found");
             CommsPrefab = Utils.FindPrefab("CommsRadio");
             if (CommsPrefab == null) Logger.LogFatal("CommsRadio not found");
+
             WorldStreamingInit.LoadingFinished += OnLoadingFinished;
             if (Settings.RemoteControlDE6.Value)
             {
                 enableDE6Remote();
             }
+        }
+
+        private IEnumerator InitCoro()
+        {
+            while (!AStartGameData.carsAndJobsLoadingFinished)
+            {
+                yield return null;
+            }
+            if (Settings.CommsRadioSpawner.Value) enableCommsSpawner();
+
+            yield break;
         }
 
         public static void Error(string message)
@@ -63,7 +77,7 @@ namespace UtilitiesMod
         {
             if (Settings.DisableDerailment.Value) disableDerail();
             if (Settings.FreeCaboose.Value) enableFreeCaboose();
-            if (Settings.CommsRadioSpawner.Value) enableCommsSpawner();
+            StartCoroutine(this.InitCoro());
         }
 
         void OnGUI()
@@ -291,11 +305,9 @@ namespace UtilitiesMod
                 {
                     if (sc.name == "LocoDE6(Clone)" && sc.TryGetComponent<RemoteControllerModule>(out RemoteControllerModule rcm))
                     {
-                        Logger.LogInfo("Found DE6");
                         LocomotiveRemoteController lrc = Traverse.Create(rcm).Field("pairedLocomotiveRemote").GetValue() as LocomotiveRemoteController;
                         if (lrc != null)
                         {
-                            Logger.LogInfo("Unpairing remote");
                             Traverse.Create(lrc).Method("Unpair").GetValue();
                         }
                         Destroy(rcm);
@@ -327,7 +339,6 @@ namespace UtilitiesMod
         {
             var radioCont = CommsPrefab.GetComponent<CommsRadioController>();
             radioCont.cheatModeOverride = true;
-            if (radioCont.isActiveAndEnabled) radioCont.UpdateModesAvailability();
 
             foreach (var rc in FindObjectsOfType<CommsRadioController>())
             {
