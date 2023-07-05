@@ -43,6 +43,10 @@
       <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\BepInEx\core\BepInEx.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="DV.Common">
+      <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\DerailValley_Data\Managed\DV.Common.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="DV.Inventory">
       <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\DerailValley_Data\Managed\DV.Inventory.dll</HintPath>
       <Private>False</Private>
