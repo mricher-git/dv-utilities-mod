@@ -29,17 +29,21 @@ namespace UtilitiesMod
 
         public static UtilitiesModSettings Settings { get; private set; }
         public static bool Debug = true;
-        private static bool showGui = false;
-        private static GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
         private static bool WheelslipAllowed;
         private static bool WheelSlideAllowed;
+        private static float ResourceConsumptionModifier;
         private static GameObject DE6Prefab;
         private static float RerailMaxPrice;
         private static float DeleteCarMaxPrice;
         private static float WorkTrainSummonMaxPrice;
 
-        private Rect ButtonRect = new Rect(0, 20, 20, 20);
-        private Rect WindowRect = new Rect(20, 20, 250, 500);
+        private static bool showGui = false;
+        private static GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
+        private Rect ButtonRect = new Rect(0, 30, 20, 20);
+        private Rect WindowRect = new Rect(20, 30, 250, 0);
+        private Vector2 ScrollPosition;
+        private Rect ScrollRect;
+
         void Start()
         {
             if (Instance != null)
@@ -59,20 +63,29 @@ namespace UtilitiesMod
             WorldStreamingInit.LoadingFinished += OnLoadingFinished;
             UnloadWatcher.UnloadRequested += UnloadRequested;
 
+            // For ScriptEngine
+            if (WorldStreamingInit.IsLoaded) OnLoadingFinished();
+
             if (Debug)
             {
                 SingletonBehaviour<DevGUI>.Instance.gameObject.SetActive(true);
             }
         }
 
+        // For ScriptEngine
         void OnDestroy()
         {
             if (UnloadWatcher.isQuitting || UnloadWatcher.isUnloading)
             {
                 return;
             }
+
+            WorldStreamingInit.LoadingFinished -= OnLoadingFinished;
+            UnloadWatcher.UnloadRequested -= UnloadRequested;
+
             if (Settings.NoWheelslip.Value) disableNoWheelslip();
             if (Settings.NoWheelSlide.Value) disableNoWheelSlide();
+            if (Settings.UnlimitedResources.Value) disableUnlimitedResources();
             if (Settings.RemoteControlDE6.Value) disableDE6Remote();
             if (Settings.CommsRadioSpawner.Value) disableCommsSpawner();
             if (Settings.FreeCaboose.Value) disableFreeCaboose();
@@ -103,12 +116,14 @@ namespace UtilitiesMod
 
             WheelslipAllowed = Globals.G.GameParams.WheelslipAllowed;
             WheelSlideAllowed = Globals.G.GameParams.WheelSlideAllowed;
+            ResourceConsumptionModifier = Globals.G.GameParams.ResourceConsumptionModifier;
             RerailMaxPrice = Globals.G.GameParams.RerailMaxPrice;
             DeleteCarMaxPrice = Globals.G.GameParams.DeleteCarMaxPrice;
             WorkTrainSummonMaxPrice = Globals.G.GameParams.WorkTrainSummonMaxPrice;
 
             if (Settings.NoWheelslip.Value) enableNoWheelslip();
             if (Settings.NoWheelSlide.Value) enableNoWheelSlide();
+            if (Settings.UnlimitedResources.Value) enableUnlimitedResources();
             if (Settings.RemoteControlDE6.Value) enableDE6Remote();
             if (Settings.CommsRadioSpawner.Value) enableCommsSpawner();
             if (Settings.FreeCaboose.Value) enableFreeCaboose();
@@ -136,11 +151,11 @@ namespace UtilitiesMod
                 return;
             }
 
-            if (GUI.Button(new Rect(0, 20, 20, 20), "U", new GUIStyle(GUI.skin.button) { fontSize = 10 })) showGui = !showGui;
+            if (GUI.Button(ButtonRect, "U", new GUIStyle(GUI.skin.button) { fontSize = 10 })) showGui = !showGui;
 
             if (showGui)
             {
-                GUILayout.Window(555, WindowRect, Window, "Utilities");
+                WindowRect = GUILayout.Window(555, WindowRect, Window, "Utilities");
             }
         }
 
@@ -148,9 +163,8 @@ namespace UtilitiesMod
         {
             GUIStyle centeredLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
 
-            //GUILayout.BeginArea(new Rect(20, 20, 250, 500));
-
-            //GUILayout.BeginVertical("Utilities", GUI.skin.window);
+            ScrollPosition = GUILayout.BeginScrollView(ScrollPosition, GUILayout.Width(250 + GUI.skin.verticalScrollbar.fixedWidth), GUILayout.Height(ScrollRect.height+GUI.skin.box.margin.vertical), GUILayout.MaxHeight(Screen.height-130));//GUILayout.Height(ScrollRect.height+GUI.skin.scrollView.margin.vertical*2), GUILayout.MaxHeight(Screen.width-100-30));//, (WindowRect.height > Screen.height - 100) ? GUILayout.Height(Screen.height - 100) : null);
+            GUILayout.BeginVertical();
             GUILayout.BeginVertical(GUI.skin.box);
             {
                 GUILayout.Label("Money", centeredLabel, GUILayout.ExpandWidth(true));
@@ -253,6 +267,17 @@ namespace UtilitiesMod
                         disableNoWheelSlide();
                 }
                 GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool unlimitedResources = GUILayout.Toggle(Settings.UnlimitedResources.Value, "Unlimited Resources");
+                if (unlimitedResources != Settings.UnlimitedResources.Value)
+                {
+                    Settings.UnlimitedResources.Value = unlimitedResources;
+                    if (unlimitedResources)
+                        enableUnlimitedResources();
+                    else
+                        disableUnlimitedResources();
+                }
+                GUILayout.EndHorizontal();
             }
             GUILayout.EndVertical();
 
@@ -327,9 +352,9 @@ namespace UtilitiesMod
                 GUILayout.EndHorizontal();
             }
             GUILayout.EndVertical();
-
-            //GUILayout.EndVertical();
-            //GUILayout.EndArea();
+            GUILayout.EndVertical();
+            ScrollRect = GUILayoutUtility.GetLastRect();
+            GUILayout.EndScrollView();
         }
         //gameParams.ResourceConsumptionModifier
         private void enableDE6Remote()
@@ -375,6 +400,16 @@ namespace UtilitiesMod
         private void disableNoWheelSlide()
         {
             Globals.G.GameParams.WheelSlideAllowed = WheelSlideAllowed;
+        }
+
+        private void enableUnlimitedResources()
+        {
+            Globals.G.GameParams.ResourceConsumptionModifier = 0;
+        }
+
+        private void disableUnlimitedResources()
+        {
+            Globals.G.GameParams.ResourceConsumptionModifier = ResourceConsumptionModifier;
         }
 
         private void disableDE6Remote()
@@ -469,6 +504,7 @@ namespace UtilitiesMod
 
         public readonly ConfigEntry<bool> NoWheelslip;
         public readonly ConfigEntry<bool> NoWheelSlide;
+        public readonly ConfigEntry<bool> UnlimitedResources;
         public readonly ConfigEntry<bool> RemoteControlDE6;
         public readonly ConfigEntry<bool> CommsRadioSpawner;
         public readonly ConfigEntry<bool> FreeCaboose;
@@ -482,6 +518,7 @@ namespace UtilitiesMod
             CommsRadioSpawner = plugin.Config.Bind(CHEATS_SECTION, "CommsRadioSpawner", false, "Allows spawning and cargo from comms menu");
             NoWheelslip = plugin.Config.Bind(CHEATS_SECTION, "NoWheelslip", false, "Disable Wheelslip");
             NoWheelSlide = plugin.Config.Bind(CHEATS_SECTION, "NoWheelSlide", false, "Disable WheelSlide");
+            UnlimitedResources = plugin.Config.Bind(CHEATS_SECTION, "UnlimitedResources", false, "Unlimited Resources (Sand/Oil/Fuel/Coal/Water)");
             FreeCaboose = plugin.Config.Bind(CHEATS_SECTION, "FreeCaboose", false, "Allows spawning Caboose for free");
             FreeRerail = plugin.Config.Bind(CHEATS_SECTION, "FreeRerail", false, "Allows rerailing for free");
             FreeClear = plugin.Config.Bind(CHEATS_SECTION, "FreeClear", false, "Allows clearing traincars for free");
