@@ -65,11 +65,6 @@ namespace UtilitiesMod
 
             // For ScriptEngine
             if (WorldStreamingInit.IsLoaded) OnLoadingFinished();
-
-            if (Debug)
-            {
-                SingletonBehaviour<DevGUI>.Instance.gameObject.SetActive(true);
-            }
         }
 
         // For ScriptEngine
