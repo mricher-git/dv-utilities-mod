@@ -28,6 +28,7 @@ namespace UtilitiesMod
         public static UtilitiesMod Instance { get; private set; }
 
         public static UtilitiesModSettings Settings { get; private set; }
+        public static bool Debug = true;
         private static bool showGui = false;
         private static GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
         private static GameObject DE6Prefab;
@@ -35,8 +36,9 @@ namespace UtilitiesMod
         private static float DeleteCarMaxPrice;
         private static float WorkTrainSummonMaxPrice;
 
-
-        public void Start()
+        private Rect ButtonRect = new Rect(0, 20, 20, 20);
+        private Rect WindowRect = new Rect(20, 20, 250, 500);
+        void Start()
         {
             if (Instance != null)
             {
@@ -54,11 +56,25 @@ namespace UtilitiesMod
 
             WorldStreamingInit.LoadingFinished += OnLoadingFinished;
             UnloadWatcher.UnloadRequested += UnloadRequested;
+
+            if (Debug)
+            {
+                SingletonBehaviour<DevGUI>.Instance.gameObject.SetActive(true);
+            }
         }
 
-        public void OnDestroy()
+        void OnDestroy()
         {
-            UnloadRequested();
+            if (UnloadWatcher.isQuitting || UnloadWatcher.isUnloading)
+            {
+                return;
+            }
+            if (Settings.RemoteControlDE6.Value) disableDE6Remote();
+            if (Settings.CommsRadioSpawner.Value) disableCommsSpawner();
+            if (Settings.FreeCaboose.Value) disableFreeCaboose();
+            if (Settings.FreeRerail.Value) disableFreeRerail();
+            if (Settings.FreeClear.Value) disableFreeClear();
+            if (Settings.DisableDerailment.Value) disableNoDerail();
         }
 
         private void OnLoadingFinished()
@@ -68,35 +84,40 @@ namespace UtilitiesMod
 
         private void UnloadRequested()
         {
-            disableFreeCaboose();
-            disableFreeClear();
-            disableFreeRerail();
         }
 
         private IEnumerator InitCoro()
         {
-            while (!AStartGameData.carsAndJobsLoadingFinished)
+            while (!AStartGameData.carsAndJobsLoadingFinished || !SingletonBehaviour<StartingItemsController>.Instance.itemsLoaded)
             {
                 yield return null;
             }
             Instance.Logger.LogInfo("Initializing Utilities Mod");
+            LogDebug("Rerail:" + Globals.G.GameParams.RerailMaxPrice);
+            LogDebug("Delete:" + Globals.G.GameParams.DeleteCarMaxPrice);
+            LogDebug("Rerail:" + Globals.G.GameParams.WorkTrainSummonMaxPrice);
+
             RerailMaxPrice = Globals.G.GameParams.RerailMaxPrice;
             DeleteCarMaxPrice = Globals.G.GameParams.DeleteCarMaxPrice;
             WorkTrainSummonMaxPrice = Globals.G.GameParams.WorkTrainSummonMaxPrice;
 
+            if (Settings.RemoteControlDE6.Value) enableDE6Remote();
             if (Settings.CommsRadioSpawner.Value) enableCommsSpawner();
-            if (Settings.DisableDerailment.Value) disableDerail();
             if (Settings.FreeCaboose.Value) enableFreeCaboose();
             if (Settings.FreeRerail.Value) enableFreeRerail();
             if (Settings.FreeClear.Value) enableFreeClear();
-            if (Settings.RemoteControlDE6.Value) enableDE6Remote();
+            if (Settings.DisableDerailment.Value) enableNoDerail();
 
             yield break;
         }
 
-        public static void Error(string message)
+        public static void LogError(string message)
         {
             Instance.Logger.LogError(message);
+        }
+        public static void LogDebug(string message)
+        {
+            if (Debug) Instance.Logger.LogDebug(message);
         }
 
         void OnGUI()
@@ -111,211 +132,216 @@ namespace UtilitiesMod
 
             if (showGui)
             {
-                GUIUtility.GetControlID(FocusType.Passive);
-                GUIStyle centeredLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
-                
-                GUILayout.BeginArea(new Rect(20, 20, 250, 500));
-                GUILayout.BeginVertical("Utilities", GUI.skin.window);
-                GUILayout.BeginVertical(GUI.skin.box);
-                {
-                    GUILayout.Label("Money", centeredLabel, GUILayout.ExpandWidth(true));
-                    GUILayout.BeginHorizontal();
-                    GUILayout.Label("Money: ");
-                    GUILayout.Label("$" + SingletonBehaviour<Inventory>.Instance.PlayerMoney.ToString("N"), new GUIStyle(GUI.skin.textField) { alignment = TextAnchor.MiddleRight });
-                    //GUILayout.Button("Set");
-                    GUILayout.EndHorizontal();
-
-                    GUILayout.BeginHorizontal();
-                    if (GUILayout.Button("> $1k"))
-                    {
-                        SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000);
-                    }
-                    if (GUILayout.Button("> $10k"))
-                    {
-                        SingletonBehaviour<Inventory>.Instance.AddMoney((double)10000);
-                    }
-                    if (GUILayout.Button("> $100k"))
-                    {
-                        SingletonBehaviour<Inventory>.Instance.AddMoney((double)100000);
-                    }
-                    if (GUILayout.Button("> $1M"))
-                    {
-                        SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000000);
-                    }
-                    GUILayout.EndHorizontal();
-                    GUILayout.BeginHorizontal();
-                    if (GUILayout.Button("< $1k"))
-                    {
-                        SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000);
-                    }
-                    if (GUILayout.Button("< $10k"))
-                    {
-                        SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)10000);
-                    }
-                    if (GUILayout.Button("< $100k"))
-                    {
-                        SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)100000);
-                    }
-                    if (GUILayout.Button("< $1M"))
-                    {
-                        SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000000);
-                    }
-                    GUILayout.EndHorizontal();
-                }
-                GUILayout.EndVertical();
-
-                GUILayout.BeginVertical(GUI.skin.box);
-                {
-                    GUILayout.Label("Licenses", centeredLabel);
-                    if (GUILayout.Button("Aquire All Loco Licenses"))
-                    {
-                        Globals.G.Types.generalLicenses.ForEach(delegate (GeneralLicenseType_v2 l)
-                        {
-                            SingletonBehaviour<LicenseManager>.Instance.AcquireGeneralLicense(l);
-                        });
-                    }
-                    if (GUILayout.Button("Aquire All Job Licenses"))
-                    {
-                        Globals.G.Types.jobLicenses.ForEach(delegate (JobLicenseType_v2 l)
-                        {
-                            SingletonBehaviour<LicenseManager>.Instance.AcquireJobLicense(l);
-                        });
-                    }
-                    if (GUILayout.Button("Unlock All Garages"))
-                    {
-                        Globals.G.Types.garages.ForEach(delegate (GarageType_v2 g)
-                        {
-                            SingletonBehaviour<LicenseManager>.Instance.UnlockGarage(g);
-                        });
-                    }
-                }
-                GUILayout.EndVertical();
-
-                GUILayout.BeginVertical(GUI.skin.box);
-                {
-                    GUILayout.Label("Loco", centeredLabel);
-                    if (GUILayout.Button("Refill Loco"))
-                    {
-                        if (PlayerManager.Car == null) return;
-                        SimController component = PlayerManager.Car.GetComponent<SimController>();
-                        ResourceContainerController resourceContainerController = ((component != null) ? component.resourceContainerController : null);
-                        if (resourceContainerController == null) return;
-
-                        resourceContainerController.RefillAllResourceContainers();
-                    }
-
-                    if (GUILayout.Button("Repair Loco"))
-                    {
-                        if (PlayerManager.Car == null) return;
-                        DamageController component = PlayerManager.Car.GetComponent<DamageController>();
-                        if (component == null) return;
-
-                        component.RepairAll();
-                    }
-                }
-                GUILayout.EndVertical();
-
-                GUILayout.BeginVertical(GUI.skin.box);
-                {
-                    GUILayout.Label("Cheats", centeredLabel);
-                    GUILayout.BeginHorizontal();
-                    bool remoteDE6 = GUILayout.Toggle(Settings.RemoteControlDE6.Value, "Remote Controller for DE6");
-                    if (remoteDE6 != Settings.RemoteControlDE6.Value)
-                    {
-                        Settings.RemoteControlDE6.Value = remoteDE6;
-                        if (remoteDE6)
-                        {
-                            enableDE6Remote();
-                        }
-                        else
-                        {
-                            disableDE6Remote();
-                        }
-                    }
-                    GUILayout.EndHorizontal();
-                    GUILayout.BeginHorizontal();
-                    bool commsSpawner = GUILayout.Toggle(Settings.CommsRadioSpawner.Value, "Comms Radio Spawner");
-                    if (commsSpawner != Settings.CommsRadioSpawner.Value)
-                    {
-                        Settings.CommsRadioSpawner.Value = commsSpawner;
-                        if (commsSpawner)
-                        {
-                            enableCommsSpawner();
-                        }
-                        else
-                        {
-                            disableCommsSpawner();
-                        }
-                    }
-                    GUILayout.EndHorizontal();
-                    GUILayout.BeginHorizontal();
-                    bool freeCaboose = GUILayout.Toggle(Settings.FreeCaboose.Value, "Free Caboose");
-                    if (freeCaboose != Settings.FreeCaboose.Value)
-                    {
-                        Settings.FreeCaboose.Value = freeCaboose;
-                        if (freeCaboose)
-                        {
-                            enableFreeCaboose();
-                        }
-                        else
-                        {
-                            disableFreeCaboose();
-                        }
-                    }
-                    GUILayout.EndHorizontal();
-                    GUILayout.BeginHorizontal();
-                    bool freeRerail = GUILayout.Toggle(Settings.FreeRerail.Value, "Free Rerail");
-                    if (freeRerail != Settings.FreeRerail.Value)
-                    {
-                        Settings.FreeRerail.Value = freeRerail;
-                        if (freeRerail)
-                        {
-                            enableFreeRerail();
-                        }
-                        else
-                        {
-                            disableFreeRerail();
-                        }
-                    }
-                    GUILayout.EndHorizontal();
-                    GUILayout.BeginHorizontal();
-                    bool freeClear = GUILayout.Toggle(Settings.FreeClear.Value, "Free Clear/Delete");
-                    if (freeClear != Settings.FreeClear.Value)
-                    {
-                        Settings.FreeClear.Value = freeClear;
-                        if (freeClear)
-                        {
-                            enableFreeClear();
-                        }
-                        else
-                        {
-                            disableFreeClear();
-                        }
-                    }
-                    GUILayout.EndHorizontal();
-                    GUILayout.BeginHorizontal();
-                    bool derail = GUILayout.Toggle(Settings.DisableDerailment.Value, "No Derailment");
-                    if (derail != Settings.DisableDerailment.Value)
-                    {
-                        Settings.DisableDerailment.Value = derail;
-                        if (derail)
-                        {
-                            disableDerail();
-                        }
-                        else
-                        {
-                            enableDerail();
-                        }
-                    }
-                    GUILayout.EndHorizontal();
-                }
-                GUILayout.EndVertical();
-
-                GUILayout.EndVertical();
-                GUILayout.EndArea();
+                GUILayout.Window(555, WindowRect, Window, "Utilities");
             }
         }
 
+        void Window(int windowId)
+        {
+            GUIStyle centeredLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
+
+            //GUILayout.BeginArea(new Rect(20, 20, 250, 500));
+
+            //GUILayout.BeginVertical("Utilities", GUI.skin.window);
+            GUILayout.BeginVertical(GUI.skin.box);
+            {
+                GUILayout.Label("Money", centeredLabel, GUILayout.ExpandWidth(true));
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Money: ");
+                GUILayout.Label("$" + SingletonBehaviour<Inventory>.Instance.PlayerMoney.ToString("N"), new GUIStyle(GUI.skin.textField) { alignment = TextAnchor.MiddleRight });
+                //GUILayout.Button("Set");
+                GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("> $1k"))
+                {
+                    SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000);
+                }
+                if (GUILayout.Button("> $10k"))
+                {
+                    SingletonBehaviour<Inventory>.Instance.AddMoney((double)10000);
+                }
+                if (GUILayout.Button("> $100k"))
+                {
+                    SingletonBehaviour<Inventory>.Instance.AddMoney((double)100000);
+                }
+                if (GUILayout.Button("> $1M"))
+                {
+                    SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000000);
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("< $1k"))
+                {
+                    SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000);
+                }
+                if (GUILayout.Button("< $10k"))
+                {
+                    SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)10000);
+                }
+                if (GUILayout.Button("< $100k"))
+                {
+                    SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)100000);
+                }
+                if (GUILayout.Button("< $1M"))
+                {
+                    SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000000);
+                }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            {
+                GUILayout.Label("Licenses", centeredLabel);
+                if (GUILayout.Button("Aquire All Loco Licenses"))
+                {
+                    Globals.G.Types.generalLicenses.ForEach(delegate (GeneralLicenseType_v2 l)
+                    {
+                        SingletonBehaviour<LicenseManager>.Instance.AcquireGeneralLicense(l);
+                    });
+                }
+                if (GUILayout.Button("Aquire All Job Licenses"))
+                {
+                    Globals.G.Types.jobLicenses.ForEach(delegate (JobLicenseType_v2 l)
+                    {
+                        SingletonBehaviour<LicenseManager>.Instance.AcquireJobLicense(l);
+                    });
+                }
+                if (GUILayout.Button("Unlock All Garages"))
+                {
+                    Globals.G.Types.garages.ForEach(delegate (GarageType_v2 g)
+                    {
+                        SingletonBehaviour<LicenseManager>.Instance.UnlockGarage(g);
+                    });
+                }
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            {
+                GUILayout.Label("Loco", centeredLabel);
+                if (GUILayout.Button("Refill Loco"))
+                {
+                    if (PlayerManager.Car == null) return;
+                    SimController component = PlayerManager.Car.GetComponent<SimController>();
+                    ResourceContainerController resourceContainerController = ((component != null) ? component.resourceContainerController : null);
+                    if (resourceContainerController == null) return;
+
+                    resourceContainerController.RefillAllResourceContainers();
+                }
+
+                if (GUILayout.Button("Repair Loco"))
+                {
+                    if (PlayerManager.Car == null) return;
+                    DamageController component = PlayerManager.Car.GetComponent<DamageController>();
+                    if (component == null) return;
+
+                    component.RepairAll();
+                }
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            {
+                GUILayout.Label("Cheats", centeredLabel);
+                GUILayout.BeginHorizontal();
+                bool remoteDE6 = GUILayout.Toggle(Settings.RemoteControlDE6.Value, "Remote Controller for DE6");
+                if (remoteDE6 != Settings.RemoteControlDE6.Value)
+                {
+                    Settings.RemoteControlDE6.Value = remoteDE6;
+                    if (remoteDE6)
+                    {
+                        enableDE6Remote();
+                    }
+                    else
+                    {
+                        disableDE6Remote();
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool commsSpawner = GUILayout.Toggle(Settings.CommsRadioSpawner.Value, "Comms Radio Spawner");
+                if (commsSpawner != Settings.CommsRadioSpawner.Value)
+                {
+                    Settings.CommsRadioSpawner.Value = commsSpawner;
+                    if (commsSpawner)
+                    {
+                        enableCommsSpawner();
+                    }
+                    else
+                    {
+                        disableCommsSpawner();
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool freeCaboose = GUILayout.Toggle(Settings.FreeCaboose.Value, "Free Caboose");
+                if (freeCaboose != Settings.FreeCaboose.Value)
+                {
+                    Settings.FreeCaboose.Value = freeCaboose;
+                    if (freeCaboose)
+                    {
+                        enableFreeCaboose();
+                    }
+                    else
+                    {
+                        disableFreeCaboose();
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool freeRerail = GUILayout.Toggle(Settings.FreeRerail.Value, "Free Rerail");
+                if (freeRerail != Settings.FreeRerail.Value)
+                {
+                    Settings.FreeRerail.Value = freeRerail;
+                    if (freeRerail)
+                    {
+                        enableFreeRerail();
+                    }
+                    else
+                    {
+                        disableFreeRerail();
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool freeClear = GUILayout.Toggle(Settings.FreeClear.Value, "Free Clear/Delete");
+                if (freeClear != Settings.FreeClear.Value)
+                {
+                    Settings.FreeClear.Value = freeClear;
+                    if (freeClear)
+                    {
+                        enableFreeClear();
+                    }
+                    else
+                    {
+                        disableFreeClear();
+                    }
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool derail = GUILayout.Toggle(Settings.DisableDerailment.Value, "No Derailment");
+                if (derail != Settings.DisableDerailment.Value)
+                {
+                    Settings.DisableDerailment.Value = derail;
+                    if (derail)
+                    {
+                        enableNoDerail();
+                    }
+                    else
+                    {
+                        disableNoDerail();
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.EndVertical();
+
+            //GUILayout.EndVertical();
+            //GUILayout.EndArea();
+        }
+        //gameParams.ResourceConsumptionModifier
         private void enableDE6Remote()
         {
             if (DE6Prefab == null)
@@ -416,12 +442,12 @@ namespace UtilitiesMod
         {
             Globals.G.GameParams.DeleteCarMaxPrice = DeleteCarMaxPrice;
         }
-        private void disableDerail()
+        private void enableNoDerail()
         {
             Globals.G.GameParams.DerailStressThreshold = float.PositiveInfinity;
         }
 
-        private void enableDerail()
+        private void disableNoDerail()
         {
             Globals.G.GameParams.DerailStressThreshold = Globals.G.GameParams.defaultStressThreshold;
         }
