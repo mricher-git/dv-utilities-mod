@@ -31,6 +31,8 @@ namespace UtilitiesMod
         public static bool Debug = true;
         private static bool showGui = false;
         private static GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
+        private static bool WheelslipAllowed;
+        private static bool WheelSlideAllowed;
         private static GameObject DE6Prefab;
         private static float RerailMaxPrice;
         private static float DeleteCarMaxPrice;
@@ -69,6 +71,8 @@ namespace UtilitiesMod
             {
                 return;
             }
+            if (Settings.NoWheelslip.Value) disableNoWheelslip();
+            if (Settings.NoWheelSlide.Value) disableNoWheelSlide();
             if (Settings.RemoteControlDE6.Value) disableDE6Remote();
             if (Settings.CommsRadioSpawner.Value) disableCommsSpawner();
             if (Settings.FreeCaboose.Value) disableFreeCaboose();
@@ -97,10 +101,14 @@ namespace UtilitiesMod
             LogDebug("Delete:" + Globals.G.GameParams.DeleteCarMaxPrice);
             LogDebug("Rerail:" + Globals.G.GameParams.WorkTrainSummonMaxPrice);
 
+            WheelslipAllowed = Globals.G.GameParams.WheelslipAllowed;
+            WheelSlideAllowed = Globals.G.GameParams.WheelSlideAllowed;
             RerailMaxPrice = Globals.G.GameParams.RerailMaxPrice;
             DeleteCarMaxPrice = Globals.G.GameParams.DeleteCarMaxPrice;
             WorkTrainSummonMaxPrice = Globals.G.GameParams.WorkTrainSummonMaxPrice;
 
+            if (Settings.NoWheelslip.Value) enableNoWheelslip();
+            if (Settings.NoWheelSlide.Value) enableNoWheelSlide();
             if (Settings.RemoteControlDE6.Value) enableDE6Remote();
             if (Settings.CommsRadioSpawner.Value) enableCommsSpawner();
             if (Settings.FreeCaboose.Value) enableFreeCaboose();
@@ -154,39 +162,23 @@ namespace UtilitiesMod
 
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("> $1k"))
-                {
                     SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000);
-                }
                 if (GUILayout.Button("> $10k"))
-                {
                     SingletonBehaviour<Inventory>.Instance.AddMoney((double)10000);
-                }
                 if (GUILayout.Button("> $100k"))
-                {
                     SingletonBehaviour<Inventory>.Instance.AddMoney((double)100000);
-                }
                 if (GUILayout.Button("> $1M"))
-                {
                     SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000000);
-                }
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("< $1k"))
-                {
                     SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000);
-                }
                 if (GUILayout.Button("< $10k"))
-                {
                     SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)10000);
-                }
                 if (GUILayout.Button("< $100k"))
-                {
                     SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)100000);
-                }
                 if (GUILayout.Button("< $1M"))
-                {
                     SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000000);
-                }
                 GUILayout.EndHorizontal();
             }
             GUILayout.EndVertical();
@@ -239,6 +231,28 @@ namespace UtilitiesMod
 
                     component.RepairAll();
                 }
+                GUILayout.BeginHorizontal();
+                bool wheelslip = GUILayout.Toggle(Settings.NoWheelslip.Value, "Disable Wheelslip");
+                if (wheelslip != Settings.NoWheelslip.Value)
+                {
+                    Settings.NoWheelslip.Value = wheelslip;
+                    if (wheelslip)
+                        enableNoWheelslip();
+                    else
+                        disableNoWheelslip();
+                }
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool wheelSlide = GUILayout.Toggle(Settings.NoWheelSlide.Value, "Disable Wheelslide");
+                if (wheelSlide != Settings.NoWheelSlide.Value)
+                {
+                    Settings.NoWheelSlide.Value = wheelSlide;
+                    if (wheelSlide)
+                        enableNoWheelSlide();
+                    else
+                        disableNoWheelSlide();
+                }
+                GUILayout.EndHorizontal();
             }
             GUILayout.EndVertical();
 
@@ -250,14 +264,10 @@ namespace UtilitiesMod
                 if (remoteDE6 != Settings.RemoteControlDE6.Value)
                 {
                     Settings.RemoteControlDE6.Value = remoteDE6;
-                    if (remoteDE6)
-                    {
+                    if (remoteDE6) 
                         enableDE6Remote();
-                    }
-                    else
-                    {
+                    else 
                         disableDE6Remote();
-                    }
                 }
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
@@ -266,13 +276,9 @@ namespace UtilitiesMod
                 {
                     Settings.CommsRadioSpawner.Value = commsSpawner;
                     if (commsSpawner)
-                    {
                         enableCommsSpawner();
-                    }
                     else
-                    {
                         disableCommsSpawner();
-                    }
                 }
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
@@ -281,13 +287,9 @@ namespace UtilitiesMod
                 {
                     Settings.FreeCaboose.Value = freeCaboose;
                     if (freeCaboose)
-                    {
                         enableFreeCaboose();
-                    }
                     else
-                    {
                         disableFreeCaboose();
-                    }
                 }
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
@@ -296,13 +298,9 @@ namespace UtilitiesMod
                 {
                     Settings.FreeRerail.Value = freeRerail;
                     if (freeRerail)
-                    {
                         enableFreeRerail();
-                    }
                     else
-                    {
                         disableFreeRerail();
-                    }
                 }
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
@@ -311,13 +309,9 @@ namespace UtilitiesMod
                 {
                     Settings.FreeClear.Value = freeClear;
                     if (freeClear)
-                    {
                         enableFreeClear();
-                    }
                     else
-                    {
                         disableFreeClear();
-                    }
                 }
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
@@ -326,13 +320,9 @@ namespace UtilitiesMod
                 {
                     Settings.DisableDerailment.Value = derail;
                     if (derail)
-                    {
                         enableNoDerail();
-                    }
                     else
-                    {
                         disableNoDerail();
-                    }
                 }
                 GUILayout.EndHorizontal();
             }
@@ -365,6 +355,26 @@ namespace UtilitiesMod
                     }
                 }
             }
+        }
+
+        private void enableNoWheelslip()
+        {
+            Globals.G.GameParams.WheelslipAllowed = false;
+        }
+
+        private void disableNoWheelslip()
+        {
+            Globals.G.GameParams.WheelslipAllowed = WheelslipAllowed;
+        }
+
+        private void enableNoWheelSlide()
+        {
+            Globals.G.GameParams.WheelSlideAllowed = false;
+        }
+
+        private void disableNoWheelSlide()
+        {
+            Globals.G.GameParams.WheelSlideAllowed = WheelSlideAllowed;
         }
 
         private void disableDE6Remote()
@@ -457,6 +467,8 @@ namespace UtilitiesMod
     {
         private const string CHEATS_SECTION = "Cheats";
 
+        public readonly ConfigEntry<bool> NoWheelslip;
+        public readonly ConfigEntry<bool> NoWheelSlide;
         public readonly ConfigEntry<bool> RemoteControlDE6;
         public readonly ConfigEntry<bool> CommsRadioSpawner;
         public readonly ConfigEntry<bool> FreeCaboose;
@@ -468,6 +480,8 @@ namespace UtilitiesMod
         {
             RemoteControlDE6 = plugin.Config.Bind(CHEATS_SECTION, "RemoteControlDE6", false, "Enabled Remote Controller for DE6");
             CommsRadioSpawner = plugin.Config.Bind(CHEATS_SECTION, "CommsRadioSpawner", false, "Allows spawning and cargo from comms menu");
+            NoWheelslip = plugin.Config.Bind(CHEATS_SECTION, "NoWheelslip", false, "Disable Wheelslip");
+            NoWheelSlide = plugin.Config.Bind(CHEATS_SECTION, "NoWheelSlide", false, "Disable WheelSlide");
             FreeCaboose = plugin.Config.Bind(CHEATS_SECTION, "FreeCaboose", false, "Allows spawning Caboose for free");
             FreeRerail = plugin.Config.Bind(CHEATS_SECTION, "FreeRerail", false, "Allows rerailing for free");
             FreeClear = plugin.Config.Bind(CHEATS_SECTION, "FreeClear", false, "Allows clearing traincars for free");
