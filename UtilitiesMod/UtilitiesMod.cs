@@ -19,7 +19,7 @@ namespace UtilitiesMod
     {
         public const string Guid = "UtilitiesMod";
         public const string Name = "Utilities Mod";
-        public const string Version = "0.3.0";
+        public const string Version = "0.4.0";
     }
 
     [BepInPlugin(PluginInfo.Guid, PluginInfo.Name, PluginInfo.Version)]
@@ -28,7 +28,7 @@ namespace UtilitiesMod
         public static UtilitiesMod Instance { get; private set; }
 
         public static UtilitiesModSettings Settings { get; private set; }
-        public static bool Debug = true;
+        public static bool Debug = false;
         private static bool WheelslipAllowed;
         private static bool WheelSlideAllowed;
         private static float ResourceConsumptionModifier;
@@ -86,12 +86,12 @@ namespace UtilitiesMod
             if (Settings.NoWheelslip.Value) disableNoWheelslip();
             if (Settings.NoWheelSlide.Value) disableNoWheelSlide();
             if (Settings.UnlimitedResources.Value) disableUnlimitedResources();
+            if (Settings.DisableDerailment.Value) disableNoDerail();
             if (Settings.RemoteControlDE6.Value) disableDE6Remote();
             if (Settings.CommsRadioSpawner.Value) disableCommsSpawner();
             if (Settings.FreeCaboose.Value) disableFreeCaboose();
             if (Settings.FreeRerail.Value) disableFreeRerail();
             if (Settings.FreeClear.Value) disableFreeClear();
-            if (Settings.DisableDerailment.Value) disableNoDerail();
         }
 
         private void OnLoadingFinished()
@@ -124,12 +124,12 @@ namespace UtilitiesMod
             if (Settings.NoWheelslip.Value) enableNoWheelslip();
             if (Settings.NoWheelSlide.Value) enableNoWheelSlide();
             if (Settings.UnlimitedResources.Value) enableUnlimitedResources();
+            if (Settings.DisableDerailment.Value) enableNoDerail();
             if (Settings.RemoteControlDE6.Value) enableDE6Remote();
             if (Settings.CommsRadioSpawner.Value) enableCommsSpawner();
             if (Settings.FreeCaboose.Value) enableFreeCaboose();
             if (Settings.FreeRerail.Value) enableFreeRerail();
             if (Settings.FreeClear.Value) enableFreeClear();
-            if (Settings.DisableDerailment.Value) enableNoDerail();
 
             yield break;
         }
@@ -278,6 +278,17 @@ namespace UtilitiesMod
                         disableUnlimitedResources();
                 }
                 GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                bool derail = GUILayout.Toggle(Settings.DisableDerailment.Value, "No Derailment");
+                if (derail != Settings.DisableDerailment.Value)
+                {
+                    Settings.DisableDerailment.Value = derail;
+                    if (derail)
+                        enableNoDerail();
+                    else
+                        disableNoDerail();
+                }
+                GUILayout.EndHorizontal();
             }
             GUILayout.EndVertical();
 
@@ -337,17 +348,6 @@ namespace UtilitiesMod
                         enableFreeClear();
                     else
                         disableFreeClear();
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                bool derail = GUILayout.Toggle(Settings.DisableDerailment.Value, "No Derailment");
-                if (derail != Settings.DisableDerailment.Value)
-                {
-                    Settings.DisableDerailment.Value = derail;
-                    if (derail)
-                        enableNoDerail();
-                    else
-                        disableNoDerail();
                 }
                 GUILayout.EndHorizontal();
             }
@@ -410,6 +410,16 @@ namespace UtilitiesMod
         private void disableUnlimitedResources()
         {
             Globals.G.GameParams.ResourceConsumptionModifier = ResourceConsumptionModifier;
+        }
+
+        private void enableNoDerail()
+        {
+            Globals.G.GameParams.DerailStressThreshold = float.PositiveInfinity;
+        }
+
+        private void disableNoDerail()
+        {
+            Globals.G.GameParams.DerailStressThreshold = Globals.G.GameParams.defaultStressThreshold;
         }
 
         private void disableDE6Remote()
@@ -487,30 +497,21 @@ namespace UtilitiesMod
         {
             Globals.G.GameParams.DeleteCarMaxPrice = DeleteCarMaxPrice;
         }
-        private void enableNoDerail()
-        {
-            Globals.G.GameParams.DerailStressThreshold = float.PositiveInfinity;
-        }
-
-        private void disableNoDerail()
-        {
-            Globals.G.GameParams.DerailStressThreshold = Globals.G.GameParams.defaultStressThreshold;
-        }
     }
 
     public class UtilitiesModSettings
     {
         private const string CHEATS_SECTION = "Cheats";
 
+        public readonly ConfigEntry<bool> RemoteControlDE6;
+        public readonly ConfigEntry<bool> CommsRadioSpawner;
         public readonly ConfigEntry<bool> NoWheelslip;
         public readonly ConfigEntry<bool> NoWheelSlide;
         public readonly ConfigEntry<bool> UnlimitedResources;
-        public readonly ConfigEntry<bool> RemoteControlDE6;
-        public readonly ConfigEntry<bool> CommsRadioSpawner;
+        public readonly ConfigEntry<bool> DisableDerailment;
         public readonly ConfigEntry<bool> FreeCaboose;
         public readonly ConfigEntry<bool> FreeRerail;
         public readonly ConfigEntry<bool> FreeClear;
-        public readonly ConfigEntry<bool> DisableDerailment;
 
         public UtilitiesModSettings(UtilitiesMod plugin)
         {
@@ -519,10 +520,10 @@ namespace UtilitiesMod
             NoWheelslip = plugin.Config.Bind(CHEATS_SECTION, "NoWheelslip", false, "Disable Wheelslip");
             NoWheelSlide = plugin.Config.Bind(CHEATS_SECTION, "NoWheelSlide", false, "Disable WheelSlide");
             UnlimitedResources = plugin.Config.Bind(CHEATS_SECTION, "UnlimitedResources", false, "Unlimited Resources (Sand/Oil/Fuel/Coal/Water)");
+            DisableDerailment = plugin.Config.Bind(CHEATS_SECTION, "DisableDerailment", false, "Disable Derailment");
             FreeCaboose = plugin.Config.Bind(CHEATS_SECTION, "FreeCaboose", false, "Allows spawning Caboose for free");
             FreeRerail = plugin.Config.Bind(CHEATS_SECTION, "FreeRerail", false, "Allows rerailing for free");
             FreeClear = plugin.Config.Bind(CHEATS_SECTION, "FreeClear", false, "Allows clearing traincars for free");
-            DisableDerailment = plugin.Config.Bind(CHEATS_SECTION, "DisableDerailment", false, "Disable Derailment");
         }
     }
 
