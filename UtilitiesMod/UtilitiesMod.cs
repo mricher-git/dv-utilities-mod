@@ -12,6 +12,7 @@ using LocoSim.Implementations;
 using UnityEngine;
 using HarmonyLib;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace UtilitiesMod
 {
@@ -491,6 +492,63 @@ namespace UtilitiesMod
         private void disableFreeClear()
         {
             Globals.G.GameParams.DeleteCarMaxPrice = DeleteCarMaxPrice;
+        }
+
+        public static void ApplyForceToTrain(float force)
+        {
+            SimController controller = null;
+            TrainCar train = PlayerManager.Car?.GetComponent<TrainCar>();
+
+            if (train == null) return;
+            switch (PlayerManager.Car.carType)
+            {
+                case TrainCarType.LocoShunter:
+                case TrainCarType.LocoDM3:
+                case TrainCarType.LocoDH4:
+                case TrainCarType.LocoDiesel:
+                case TrainCarType.LocoSteamHeavy:
+                    {
+                        controller = PlayerManager.Car.GetComponent<SimController>();
+                    }
+                    break;
+            }
+            if (controller == null) return;
+            
+
+            if (train.isEligibleForSleep)
+            {
+                train.ForceOptimizationState(false, false);
+            }
+
+            float totalMass = 0;
+            List<TrainCar> cars = train.trainset.cars;
+
+            for (int i = 0; i < cars.Count; i++)
+            {
+                totalMass += cars[i].massController.TotalMass;
+            }
+            var dir = force > 0 ? 1 : -1;
+            float totalAppliedForcePerBogie = dir * (totalMass + Mathf.Abs(force)) / train.Bogies.Length;
+            Bogie[] bogies = train.Bogies;
+            for (int i = 0; i < bogies.Length; i++)
+            {
+                bogies[i].ApplyForce(totalAppliedForcePerBogie);
+            }
+        }
+
+        void Update()
+        {
+            const float force = 100000f;
+            int dir = 1;
+            if (Input.GetKey(KeyCode.Keypad1))
+            {
+                ApplyForceToTrain(-force * (Input.GetKey(KeyCode.LeftShift) ? 3 : 1));
+            }
+            if (Input.GetKey(KeyCode.Keypad3))
+            {
+                ApplyForceToTrain(force * (Input.GetKey(KeyCode.LeftShift) ? 3 : 1));
+            }
+
         }
     }
 

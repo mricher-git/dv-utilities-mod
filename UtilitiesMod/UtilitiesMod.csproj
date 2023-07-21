@@ -83,6 +83,10 @@
       <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\DerailValley_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\DerailValley_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
       <HintPath>E:\SteamLibrary\steamapps\common\Derail Valley\DerailValley_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>False</Private>
