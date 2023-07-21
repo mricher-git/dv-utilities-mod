@@ -17,7 +17,7 @@ namespace UtilitiesMod
     public static class PluginInfo
     {
         public const string Guid = "UtilitiesMod";
-        public const string Name = "Utilities Mod";
+        public const string Name = "DV Utilities";
         public const string Version = "1.0.0";
     }
 
