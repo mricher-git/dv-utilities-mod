@@ -1,0 +1,10 @@
+{
+	"Id": "Utilities",
+	"DisplayName": "DV Utilites",
+	"Author": "Vanguard",
+	"Version": "1.0.0",
+	"AssemblyName": "UtilitiesMod.dll",
+	"EntryMethod": "UtilitiesMod.UtilitiesModLoader.Main",
+	"HomePage": "https://www.nexusmods.com/derailvalley/mods/631",
+	"Repository": "https://raw.githubusercontent.com/mricher-git/dv-utilities-mod/master/Repository.json"
+}
