@@ -530,7 +530,7 @@ namespace UtilitiesMod
 
             foreach (var go in gos)
             {
-                if (go.name.StartsWith(name) && go.activeInHierarchy == false && go.transform.parent == null)
+                if (go.name == name && go.activeInHierarchy == false && go.transform.parent == null)
                 {
                     return go;
                 }
