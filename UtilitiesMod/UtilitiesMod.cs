@@ -18,10 +18,10 @@ namespace UtilitiesMod
         public const string Version = "1.0.0";
 
         // Cached original values
+        private GameObject DE6Prefab;
         private bool WheelslipAllowed;
         private bool WheelSlideAllowed;
         private float ResourceConsumptionModifier;
-        private GameObject DE6Prefab;
         private float RerailMaxPrice;
         private float DeleteCarMaxPrice;
         private float WorkTrainSummonMaxPrice;
@@ -349,6 +349,35 @@ namespace UtilitiesMod
             }
         }
 
+        private void disableDE6Remote()
+        {
+            if (DE6Prefab == null)
+            {
+                UMM.Loader.LogError("DE6 Prefab not found");
+            }
+            else
+            {
+                if (DE6Prefab.GetComponent<RemoteControllerModule>() != null)
+                {
+                    Destroy(DE6Prefab.GetComponent<RemoteControllerModule>());
+                    DE6Prefab.GetComponent<SimController>().remoteController = null;
+                }
+
+                foreach (var sc in FindObjectsOfType<SimController>())
+                {
+                    if (sc.name == "LocoDE6(Clone)" && sc.TryGetComponent<RemoteControllerModule>(out RemoteControllerModule rcm))
+                    {
+                        LocomotiveRemoteController lrc = Traverse.Create(rcm).Field("pairedLocomotiveRemote").GetValue() as LocomotiveRemoteController;
+                        if (lrc != null)
+                        {
+                            Traverse.Create(lrc).Method("Unpair").GetValue();
+                        }
+                        Destroy(rcm);
+                    }
+                }
+            }
+        }
+
         private void enableNoWheelslip()
         {
             Globals.G.GameParams.WheelslipAllowed = false;
@@ -388,35 +417,7 @@ namespace UtilitiesMod
         {
             Globals.G.GameParams.DerailStressThreshold = Globals.G.GameParams.defaultStressThreshold;
         }
-
-        private void disableDE6Remote()
-        {
-            if (DE6Prefab == null)
-            {
-                UMM.Loader.LogError("DE6 Prefab not found");
-            }
-            else
-            {
-                if (DE6Prefab.GetComponent<RemoteControllerModule>() != null)
-                {
-                    Destroy(DE6Prefab.GetComponent<RemoteControllerModule>());
-                    DE6Prefab.GetComponent<SimController>().remoteController = null;
-                }
-
-                foreach (var sc in FindObjectsOfType<SimController>())
-                {
-                    if (sc.name == "LocoDE6(Clone)" && sc.TryGetComponent<RemoteControllerModule>(out RemoteControllerModule rcm))
-                    {
-                        LocomotiveRemoteController lrc = Traverse.Create(rcm).Field("pairedLocomotiveRemote").GetValue() as LocomotiveRemoteController;
-                        if (lrc != null)
-                        {
-                            Traverse.Create(lrc).Method("Unpair").GetValue();
-                        }
-                        Destroy(rcm);
-                    }
-                }
-            }
-        }
+        
         private void enableCommsSpawner()
         {
             foreach (var rc in Resources.FindObjectsOfTypeAll<CommsRadioController>())
