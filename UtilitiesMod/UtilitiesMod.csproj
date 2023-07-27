@@ -99,7 +99,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>
-    </PostBuildEvent>
+    <PostBuildEvent>if $(ConfigurationName) == Release (powershell Compress-Archive -Path '$(TargetDir)$(ProjectName).dll', '$(TargetDir)Info.json' -DestinationPath '$(TargetDir)dvUtilities.zip' -Force)
+start XCOPY /Y /R "$(TargetDir)\*.dll" "E:\SteamLibrary\steamapps\common\Derail Valley\Mods\Utilities\"
+start XCOPY /Y /R "$(TargetDir)\Info.json" "E:\SteamLibrary\steamapps\common\Derail Valley\Mods\Utilities\"</PostBuildEvent>
   </PropertyGroup>
 </Project>
