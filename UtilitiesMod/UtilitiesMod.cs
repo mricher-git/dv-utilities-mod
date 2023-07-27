@@ -32,7 +32,7 @@ namespace UtilitiesMod
         private static readonly GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
         private bool showGui = false;
         private Rect buttonRect = new Rect(0, 30, 20, 20);
-        private Rect windowRect = new Rect(20, 30, 250, 0);
+        private Rect windowRect = new Rect(20, 30, 0, 0);
         private Vector2 scrollPosition;
         private Rect scrollRect;
         private Rect WeatherPresetRect;
@@ -145,7 +145,7 @@ namespace UtilitiesMod
         {
             GUIStyle centeredLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
 
-            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Width(250 + GUI.skin.verticalScrollbar.fixedWidth), GUILayout.Height(scrollRect.height + GUI.skin.box.margin.vertical), GUILayout.MaxHeight(Screen.height - 130));//GUILayout.Height(ScrollRect.height+GUI.skin.scrollView.margin.vertical*2), GUILayout.MaxHeight(Screen.width-100-30));//, (WindowRect.height > Screen.height - 100) ? GUILayout.Height(Screen.height - 100) : null);
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Width(270 + GUI.skin.verticalScrollbar.fixedWidth), GUILayout.Height(scrollRect.height + GUI.skin.box.margin.vertical), GUILayout.MaxHeight(Screen.height - 130));
             GUILayout.BeginVertical();
             {
                 GUILayout.BeginVertical(GUI.skin.box);
@@ -338,19 +338,11 @@ namespace UtilitiesMod
 
                 GUILayout.BeginVertical(GUI.skin.box);
                 {
-                    GUILayout.Label("Time", centeredLabel);
+                    GUILayout.Label("Environment", centeredLabel);
                     GUILayout.BeginHorizontal();
-                    WeatherDriver.Instance.manager.todTime.ProgressTime = !GUILayout.Toggle(!WeatherDriver.Instance.manager.todTime.ProgressTime, "Lock Time", GUILayout.ExpandWidth(false));
-
-                    if (Event.current.type == EventType.Repaint)
-                    {
-                        last = GUILayoutUtility.GetLastRect();
-                    }
-                    if (last != Rect.zero)
-                    {
-                        GUILayout.Label(WeatherDriver.Instance.manager.DateTime.ToString("hh:mm tt"), centeredLabel);
-                        GUILayout.Space(last.width);
-                    }
+                    WeatherDriver.Instance.manager.todTime.ProgressTime = !GUILayout.Toggle(!WeatherDriver.Instance.manager.todTime.ProgressTime, "Lock Time", GUILayout.Width(80));
+                    GUILayout.Label(WeatherDriver.Instance.manager.DateTime.ToString("hh:mm tt"), centeredLabel, GUILayout.ExpandWidth(true));
+                    GUILayout.Space(80);
                     GUILayout.EndHorizontal();
 
                     GUILayout.BeginHorizontal();
@@ -359,31 +351,34 @@ namespace UtilitiesMod
                     if (GUILayout.Button("12P")) WeatherDriver.Instance.manager.SetTimeOfDay(0.50f);
                     if (GUILayout.Button("6P")) WeatherDriver.Instance.manager.SetTimeOfDay(0.75f);
                     GUILayout.EndHorizontal();
+                    
                     GUILayout.BeginHorizontal();
                     if (GUILayout.Button("<", GUILayout.ExpandWidth(false))) WeatherDriver.Instance.manager.AdvanceTime(-3600);
                     var time = GUILayout.HorizontalSlider(WeatherDriver.Instance.manager.timeOfDay, 0f, 1f);
                     if (time != WeatherDriver.Instance.manager.timeOfDay) WeatherDriver.Instance.manager.SetTimeOfDay(Mathf.Min(time, 1f - 1f / 1440f));
                     if (GUILayout.Button(">", GUILayout.ExpandWidth(false))) WeatherDriver.Instance.manager.AdvanceTime(+3600);
                     GUILayout.EndHorizontal();
-                    if (GUILayout.Button(WeatherDriver.Instance.presetOverride ? WeatherDriver.Instance.presetOverride?.name : "None"))
+                    
+                    GUILayout.Label("Weather Preset");
+                    if (GUILayout.Button(WeatherDriver.Instance.presetOverride ? WeatherDriver.Instance.presetOverride?.name.Remove(0, 4) : "None"))
                     {
                         weatherPresetShow = true;
                         weatherPreset = -1;
                     }
-                    if (weatherPresetShow) { }
-                    //GUI.Window(556, new Rect(WindowRect.x + WindowRect.width + 20, WindowRect.y, 200f, 100f), WeatherPresetWindow, "Select Weather Preset");
                 }
                 GUILayout.EndVertical();
             }
             GUILayout.EndVertical();
-            scrollRect = GUILayoutUtility.GetLastRect();
+            if (Event.current.type == EventType.Repaint)
+            {
+                scrollRect = GUILayoutUtility.GetLastRect();
+            }
             GUILayout.EndScrollView();
         }
 
         private void WeatherPresetWindow(int windowId)
         {
             weatherPreset = GUILayout.SelectionGrid(weatherPreset, WeatherDriver.Instance.Pack.presets.Select(x => x.name.Remove(0, 4)).Prepend("None").ToArray(), 1);
-            //PresetRect = GUILayoutUtility.GetLastRect();
             if (weatherPreset != -1)
             {
                 weatherPresetShow = false;
