@@ -5,7 +5,7 @@ using UnityModManagerNet;
 namespace UtilitiesMod.UMM
 {
 #if DEBUG
-[EnableReloading]
+    [EnableReloading]
 #endif
     public static class Loader
     {
@@ -63,16 +63,14 @@ namespace UtilitiesMod.UMM
         public static void LogDebug(string message)
         {
 #if DEBUG
-                ModEntry.Logger.Log(message);
+            ModEntry.Logger.Log(message);
 #endif
         }
 
-        
+
 
         public class UtilitiesModSettings : UnityModManager.ModSettings
         {
-            private const string CHEATS_SECTION = "Cheats";
-
             public bool RemoteControlDE6;
             public bool CommsRadioSpawner;
             public bool NoWheelslip;

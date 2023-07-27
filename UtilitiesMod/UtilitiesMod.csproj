@@ -55,6 +55,9 @@
     <Reference Include="DV.Utils">
       <Private>False</Private>
     </Reference>
+    <Reference Include="DV.WeatherSystem, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <Private>False</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />

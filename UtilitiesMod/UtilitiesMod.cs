@@ -5,9 +5,11 @@ using DV.RemoteControls;
 using DV.Simulation.Cars;
 using DV.ThingTypes;
 using DV.Utils;
+using DV.WeatherSystem;
 using HarmonyLib;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace UtilitiesMod
@@ -15,24 +17,28 @@ namespace UtilitiesMod
 
     public class UtilitiesMod : MonoBehaviour
     {
-        public const string Version = "1.0.0";
+        public const string Version = "1.1.0";
 
         // Cached original values
         private GameObject DE6Prefab;
-        private bool WheelslipAllowed;
-        private bool WheelSlideAllowed;
-        private float ResourceConsumptionModifier;
-        private float RerailMaxPrice;
-        private float DeleteCarMaxPrice;
-        private float WorkTrainSummonMaxPrice;
+        private bool originalWheelslipAllowed;
+        private bool originalWheelSlideAllowed;
+        private float originalResourceConsumptionModifier;
+        private float originalRerailMaxPrice;
+        private float originalDeleteCarMaxPrice;
+        private float originalWorkTrainSummonMaxPrice;
 
         // GUI vars
-        private static GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
+        private static readonly GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
         private bool showGui = false;
-        private Rect ButtonRect = new Rect(0, 30, 20, 20);
-        private Rect WindowRect = new Rect(20, 30, 250, 0);
-        private Vector2 ScrollPosition;
-        private Rect ScrollRect;
+        private Rect buttonRect = new Rect(0, 30, 20, 20);
+        private Rect windowRect = new Rect(20, 30, 250, 0);
+        private Vector2 scrollPosition;
+        private Rect scrollRect;
+        private Rect WeatherPresetRect;
+        private int weatherPreset = -1;
+        private bool weatherPresetShow = false;
+        private Rect last;
 
         internal UMM.Loader.UtilitiesModSettings Settings;
 
@@ -44,30 +50,29 @@ namespace UtilitiesMod
             WorldStreamingInit.LoadingFinished += OnLoadingFinished;
             UnloadWatcher.UnloadRequested += UnloadRequested;
 
-            // For ScriptEngine
             if (WorldStreamingInit.IsLoaded) OnLoadingFinished();
         }
 
-        // For ScriptEngine
         void OnDestroy()
         {
             if (UnloadWatcher.isQuitting || UnloadWatcher.isUnloading)
             {
+                showGui = false;
                 return;
             }
 
             WorldStreamingInit.LoadingFinished -= OnLoadingFinished;
             UnloadWatcher.UnloadRequested -= UnloadRequested;
 
-            if (Settings.NoWheelslip) disableNoWheelslip();
-            if (Settings.NoWheelSlide) disableNoWheelSlide();
-            if (Settings.UnlimitedResources) disableUnlimitedResources();
-            if (Settings.DisableDerailment) disableNoDerail();
-            if (Settings.RemoteControlDE6) disableDE6Remote();
-            if (Settings.CommsRadioSpawner) disableCommsSpawner();
-            if (Settings.FreeCaboose) disableFreeCaboose();
-            if (Settings.FreeRerail) disableFreeRerail();
-            if (Settings.FreeClear) disableFreeClear();
+            if (Settings.NoWheelslip) DisableNoWheelslip();
+            if (Settings.NoWheelSlide) DisableNoWheelSlide();
+            if (Settings.UnlimitedResources) DisableUnlimitedResources();
+            if (Settings.DisableDerailment) DisableNoDerail();
+            if (Settings.RemoteControlDE6) DisableDE6Remote();
+            if (Settings.CommsRadioSpawner) DisableCommsSpawner();
+            if (Settings.FreeCaboose) DisableFreeCaboose();
+            if (Settings.FreeRerail) DisableFreeRerail();
+            if (Settings.FreeClear) DisableFreeClear();
         }
 
         private void OnLoadingFinished()
@@ -90,22 +95,22 @@ namespace UtilitiesMod
             UMM.Loader.LogDebug("Delete:" + Globals.G.GameParams.DeleteCarMaxPrice);
             UMM.Loader.LogDebug("Rerail:" + Globals.G.GameParams.WorkTrainSummonMaxPrice);
 
-            WheelslipAllowed = Globals.G.GameParams.WheelslipAllowed;
-            WheelSlideAllowed = Globals.G.GameParams.WheelSlideAllowed;
-            ResourceConsumptionModifier = Globals.G.GameParams.ResourceConsumptionModifier;
-            RerailMaxPrice = Globals.G.GameParams.RerailMaxPrice;
-            DeleteCarMaxPrice = Globals.G.GameParams.DeleteCarMaxPrice;
-            WorkTrainSummonMaxPrice = Globals.G.GameParams.WorkTrainSummonMaxPrice;
+            originalWheelslipAllowed = Globals.G.GameParams.WheelslipAllowed;
+            originalWheelSlideAllowed = Globals.G.GameParams.WheelSlideAllowed;
+            originalResourceConsumptionModifier = Globals.G.GameParams.ResourceConsumptionModifier;
+            originalRerailMaxPrice = Globals.G.GameParams.RerailMaxPrice;
+            originalDeleteCarMaxPrice = Globals.G.GameParams.DeleteCarMaxPrice;
+            originalWorkTrainSummonMaxPrice = Globals.G.GameParams.WorkTrainSummonMaxPrice;
 
-            if (Settings.NoWheelslip) enableNoWheelslip();
-            if (Settings.NoWheelSlide) enableNoWheelSlide();
-            if (Settings.UnlimitedResources) enableUnlimitedResources();
-            if (Settings.DisableDerailment) enableNoDerail();
-            if (Settings.RemoteControlDE6) enableDE6Remote();
-            if (Settings.CommsRadioSpawner) enableCommsSpawner();
-            if (Settings.FreeCaboose) enableFreeCaboose();
-            if (Settings.FreeRerail) enableFreeRerail();
-            if (Settings.FreeClear) enableFreeClear();
+            if (Settings.NoWheelslip) EnableNoWheelslip();
+            if (Settings.NoWheelSlide) EnableNoWheelSlide();
+            if (Settings.UnlimitedResources) EnableUnlimitedResources();
+            if (Settings.DisableDerailment) EnableNoDerail();
+            if (Settings.RemoteControlDE6) EnableDE6Remote();
+            if (Settings.CommsRadioSpawner) EnableCommsSpawner();
+            if (Settings.FreeCaboose) EnableFreeCaboose();
+            if (Settings.FreeRerail) EnableFreeRerail();
+            if (Settings.FreeClear) EnableFreeClear();
 
             yield break;
         }
@@ -118,11 +123,21 @@ namespace UtilitiesMod
                 return;
             }
 
-            if (GUI.Button(ButtonRect, "U", new GUIStyle(GUI.skin.button) { fontSize = 10 })) showGui = !showGui;
+            if (GUI.Button(buttonRect, "U", new GUIStyle(GUI.skin.button) { fontSize = 10, clipping = TextClipping.Overflow})) showGui = !showGui;
 
             if (showGui)
             {
-                WindowRect = GUILayout.Window(555, WindowRect, Window, "Utilities");
+                windowRect = GUILayout.Window(555, windowRect, Window, "Utilities");
+
+                if (weatherPresetShow)
+                {
+                    if (WeatherPresetRect.width > 0)
+                    {
+                        WeatherPresetRect.x = windowRect.x + windowRect.width;
+                        WeatherPresetRect.y = windowRect.y + windowRect.height - WeatherPresetRect.height;
+                    }
+                    WeatherPresetRect = GUILayout.Window(556, WeatherPresetRect, WeatherPresetWindow, "Select Weather Preset");
+                }
             }
         }
 
@@ -130,201 +145,257 @@ namespace UtilitiesMod
         {
             GUIStyle centeredLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
 
-            ScrollPosition = GUILayout.BeginScrollView(ScrollPosition, GUILayout.Width(250 + GUI.skin.verticalScrollbar.fixedWidth), GUILayout.Height(ScrollRect.height + GUI.skin.box.margin.vertical), GUILayout.MaxHeight(Screen.height - 130));//GUILayout.Height(ScrollRect.height+GUI.skin.scrollView.margin.vertical*2), GUILayout.MaxHeight(Screen.width-100-30));//, (WindowRect.height > Screen.height - 100) ? GUILayout.Height(Screen.height - 100) : null);
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Width(250 + GUI.skin.verticalScrollbar.fixedWidth), GUILayout.Height(scrollRect.height + GUI.skin.box.margin.vertical), GUILayout.MaxHeight(Screen.height - 130));//GUILayout.Height(ScrollRect.height+GUI.skin.scrollView.margin.vertical*2), GUILayout.MaxHeight(Screen.width-100-30));//, (WindowRect.height > Screen.height - 100) ? GUILayout.Height(Screen.height - 100) : null);
             GUILayout.BeginVertical();
-            GUILayout.BeginVertical(GUI.skin.box);
             {
-                GUILayout.Label("Money", centeredLabel, GUILayout.ExpandWidth(true));
-                GUILayout.BeginHorizontal();
-                GUILayout.Label("Money: ");
-                GUILayout.Label("$" + SingletonBehaviour<Inventory>.Instance.PlayerMoney.ToString("N"), new GUIStyle(GUI.skin.textField) { alignment = TextAnchor.MiddleRight });
-                //GUILayout.Button("Set");
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal();
-                if (GUILayout.Button("> $1k"))
-                    SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000);
-                if (GUILayout.Button("> $10k"))
-                    SingletonBehaviour<Inventory>.Instance.AddMoney((double)10000);
-                if (GUILayout.Button("> $100k"))
-                    SingletonBehaviour<Inventory>.Instance.AddMoney((double)100000);
-                if (GUILayout.Button("> $1M"))
-                    SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000000);
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                if (GUILayout.Button("< $1k"))
-                    SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000);
-                if (GUILayout.Button("< $10k"))
-                    SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)10000);
-                if (GUILayout.Button("< $100k"))
-                    SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)100000);
-                if (GUILayout.Button("< $1M"))
-                    SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000000);
-                GUILayout.EndHorizontal();
-            }
-            GUILayout.EndVertical();
-
-            GUILayout.BeginVertical(GUI.skin.box);
-            {
-                GUILayout.Label("Licenses", centeredLabel);
-                if (GUILayout.Button("Aquire All Loco Licenses"))
+                GUILayout.BeginVertical(GUI.skin.box);
                 {
-                    Globals.G.Types.generalLicenses.ForEach(delegate (GeneralLicenseType_v2 l)
+                    GUILayout.Label("Money", centeredLabel, GUILayout.ExpandWidth(true));
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Money: ");
+                    GUILayout.Label("$" + SingletonBehaviour<Inventory>.Instance.PlayerMoney.ToString("N"), new GUIStyle(GUI.skin.textField) { alignment = TextAnchor.MiddleRight });
+                    //GUILayout.Button("Set");
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    if (GUILayout.Button("> $1k"))
+                        SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000);
+                    if (GUILayout.Button("> $10k"))
+                        SingletonBehaviour<Inventory>.Instance.AddMoney((double)10000);
+                    if (GUILayout.Button("> $100k"))
+                        SingletonBehaviour<Inventory>.Instance.AddMoney((double)100000);
+                    if (GUILayout.Button("> $1M"))
+                        SingletonBehaviour<Inventory>.Instance.AddMoney((double)1000000);
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    if (GUILayout.Button("< $1k"))
+                        SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000);
+                    if (GUILayout.Button("< $10k"))
+                        SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)10000);
+                    if (GUILayout.Button("< $100k"))
+                        SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)100000);
+                    if (GUILayout.Button("< $1M"))
+                        SingletonBehaviour<Inventory>.Instance.RemoveMoney((double)1000000);
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.EndVertical();
+
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    GUILayout.Label("Licenses", centeredLabel);
+                    if (GUILayout.Button("Aquire All Loco Licenses"))
                     {
-                        SingletonBehaviour<LicenseManager>.Instance.AcquireGeneralLicense(l);
-                    });
-                }
-                if (GUILayout.Button("Aquire All Job Licenses"))
-                {
-                    Globals.G.Types.jobLicenses.ForEach(delegate (JobLicenseType_v2 l)
+                        Globals.G.Types.generalLicenses.ForEach(delegate (GeneralLicenseType_v2 l)
+                        {
+                            SingletonBehaviour<LicenseManager>.Instance.AcquireGeneralLicense(l);
+                        });
+                    }
+                    if (GUILayout.Button("Aquire All Job Licenses"))
                     {
-                        SingletonBehaviour<LicenseManager>.Instance.AcquireJobLicense(l);
-                    });
-                }
-                if (GUILayout.Button("Unlock All Garages"))
-                {
-                    Globals.G.Types.garages.ForEach(delegate (GarageType_v2 g)
+                        Globals.G.Types.jobLicenses.ForEach(delegate (JobLicenseType_v2 l)
+                        {
+                            SingletonBehaviour<LicenseManager>.Instance.AcquireJobLicense(l);
+                        });
+                    }
+                    if (GUILayout.Button("Unlock All Garages"))
                     {
-                        SingletonBehaviour<LicenseManager>.Instance.UnlockGarage(g);
-                    });
+                        Globals.G.Types.garages.ForEach(delegate (GarageType_v2 g)
+                        {
+                            SingletonBehaviour<LicenseManager>.Instance.UnlockGarage(g);
+                        });
+                    }
                 }
+                GUILayout.EndVertical();
+
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    GUILayout.Label("Loco", centeredLabel);
+                    if (GUILayout.Button("Refill Loco"))
+                    {
+                        if (PlayerManager.Car == null) return;
+                        SimController component = PlayerManager.Car.GetComponent<SimController>();
+                        ResourceContainerController resourceContainerController = component?.resourceContainerController;
+                        if (resourceContainerController == null) return;
+
+                        resourceContainerController.RefillAllResourceContainers();
+                    }
+
+                    if (GUILayout.Button("Repair Loco"))
+                    {
+                        if (PlayerManager.Car == null) return;
+                        DamageController component = PlayerManager.Car.GetComponent<DamageController>();
+                        if (component == null) return;
+
+                        component.RepairAll();
+                    }
+                    GUILayout.BeginHorizontal();
+                    bool wheelslip = GUILayout.Toggle(Settings.NoWheelslip, "Disable Wheelslip");
+                    if (wheelslip != Settings.NoWheelslip)
+                    {
+                        Settings.NoWheelslip = wheelslip;
+                        if (wheelslip)
+                            EnableNoWheelslip();
+                        else
+                            DisableNoWheelslip();
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    bool wheelSlide = GUILayout.Toggle(Settings.NoWheelSlide, "Disable Wheelslide");
+                    if (wheelSlide != Settings.NoWheelSlide)
+                    {
+                        Settings.NoWheelSlide = wheelSlide;
+                        if (wheelSlide)
+                            EnableNoWheelSlide();
+                        else
+                            DisableNoWheelSlide();
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    bool unlimitedResources = GUILayout.Toggle(Settings.UnlimitedResources, "Unlimited Resources");
+                    if (unlimitedResources != Settings.UnlimitedResources)
+                    {
+                        Settings.UnlimitedResources = unlimitedResources;
+                        if (unlimitedResources)
+                            EnableUnlimitedResources();
+                        else
+                            DisableUnlimitedResources();
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    bool derail = GUILayout.Toggle(Settings.DisableDerailment, "No Derailment");
+                    if (derail != Settings.DisableDerailment)
+                    {
+                        Settings.DisableDerailment = derail;
+                        if (derail)
+                            EnableNoDerail();
+                        else
+                            DisableNoDerail();
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.EndVertical();
+
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    GUILayout.Label("Cheats", centeredLabel);
+                    GUILayout.BeginHorizontal();
+                    bool remoteDE6 = GUILayout.Toggle(Settings.RemoteControlDE6, "Remote Controller for DE6");
+                    if (remoteDE6 != Settings.RemoteControlDE6)
+                    {
+                        Settings.RemoteControlDE6 = remoteDE6;
+                        if (remoteDE6)
+                            EnableDE6Remote();
+                        else
+                            DisableDE6Remote();
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    bool commsSpawner = GUILayout.Toggle(Settings.CommsRadioSpawner, "Comms Radio Spawner");
+                    if (commsSpawner != Settings.CommsRadioSpawner)
+                    {
+                        Settings.CommsRadioSpawner = commsSpawner;
+                        if (commsSpawner)
+                            EnableCommsSpawner();
+                        else
+                            DisableCommsSpawner();
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    bool freeCaboose = GUILayout.Toggle(Settings.FreeCaboose, "Free Caboose");
+                    if (freeCaboose != Settings.FreeCaboose)
+                    {
+                        Settings.FreeCaboose = freeCaboose;
+                        if (freeCaboose)
+                            EnableFreeCaboose();
+                        else
+                            DisableFreeCaboose();
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    bool freeRerail = GUILayout.Toggle(Settings.FreeRerail, "Free Rerail");
+                    if (freeRerail != Settings.FreeRerail)
+                    {
+                        Settings.FreeRerail = freeRerail;
+                        if (freeRerail)
+                            EnableFreeRerail();
+                        else
+                            DisableFreeRerail();
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    bool freeClear = GUILayout.Toggle(Settings.FreeClear, "Free Clear/Delete");
+                    if (freeClear != Settings.FreeClear)
+                    {
+                        Settings.FreeClear = freeClear;
+                        if (freeClear)
+                            EnableFreeClear();
+                        else
+                            DisableFreeClear();
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.EndVertical();
+
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    GUILayout.Label("Time", centeredLabel);
+                    GUILayout.BeginHorizontal();
+                    WeatherDriver.Instance.manager.todTime.ProgressTime = !GUILayout.Toggle(!WeatherDriver.Instance.manager.todTime.ProgressTime, "Lock Time", GUILayout.ExpandWidth(false));
+
+                    if (Event.current.type == EventType.Repaint)
+                    {
+                        last = GUILayoutUtility.GetLastRect();
+                    }
+                    if (last != Rect.zero)
+                    {
+                        GUILayout.Label(WeatherDriver.Instance.manager.DateTime.ToString("hh:mm tt"), centeredLabel);
+                        GUILayout.Space(last.width);
+                    }
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    if (GUILayout.Button("12A")) WeatherDriver.Instance.manager.SetTimeOfDay(0f);
+                    if (GUILayout.Button("6A")) WeatherDriver.Instance.manager.SetTimeOfDay(0.25f);
+                    if (GUILayout.Button("12P")) WeatherDriver.Instance.manager.SetTimeOfDay(0.50f);
+                    if (GUILayout.Button("6P")) WeatherDriver.Instance.manager.SetTimeOfDay(0.75f);
+                    GUILayout.EndHorizontal();
+                    GUILayout.BeginHorizontal();
+                    if (GUILayout.Button("<", GUILayout.ExpandWidth(false))) WeatherDriver.Instance.manager.AdvanceTime(-3600);
+                    var time = GUILayout.HorizontalSlider(WeatherDriver.Instance.manager.timeOfDay, 0f, 1f);
+                    if (time != WeatherDriver.Instance.manager.timeOfDay) WeatherDriver.Instance.manager.SetTimeOfDay(Mathf.Min(time, 1f - 1f / 1440f));
+                    if (GUILayout.Button(">", GUILayout.ExpandWidth(false))) WeatherDriver.Instance.manager.AdvanceTime(+3600);
+                    GUILayout.EndHorizontal();
+                    if (GUILayout.Button(WeatherDriver.Instance.presetOverride ? WeatherDriver.Instance.presetOverride?.name : "None"))
+                    {
+                        weatherPresetShow = true;
+                        weatherPreset = -1;
+                    }
+                    if (weatherPresetShow) { }
+                    //GUI.Window(556, new Rect(WindowRect.x + WindowRect.width + 20, WindowRect.y, 200f, 100f), WeatherPresetWindow, "Select Weather Preset");
+                }
+                GUILayout.EndVertical();
             }
             GUILayout.EndVertical();
-
-            GUILayout.BeginVertical(GUI.skin.box);
-            {
-                GUILayout.Label("Loco", centeredLabel);
-                if (GUILayout.Button("Refill Loco"))
-                {
-                    if (PlayerManager.Car == null) return;
-                    SimController component = PlayerManager.Car.GetComponent<SimController>();
-                    ResourceContainerController resourceContainerController = ((component != null) ? component.resourceContainerController : null);
-                    if (resourceContainerController == null) return;
-
-                    resourceContainerController.RefillAllResourceContainers();
-                }
-
-                if (GUILayout.Button("Repair Loco"))
-                {
-                    if (PlayerManager.Car == null) return;
-                    DamageController component = PlayerManager.Car.GetComponent<DamageController>();
-                    if (component == null) return;
-
-                    component.RepairAll();
-                }
-                GUILayout.BeginHorizontal();
-                bool wheelslip = GUILayout.Toggle(Settings.NoWheelslip, "Disable Wheelslip");
-                if (wheelslip != Settings.NoWheelslip)
-                {
-                    Settings.NoWheelslip = wheelslip;
-                    if (wheelslip)
-                        enableNoWheelslip();
-                    else
-                        disableNoWheelslip();
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                bool wheelSlide = GUILayout.Toggle(Settings.NoWheelSlide, "Disable Wheelslide");
-                if (wheelSlide != Settings.NoWheelSlide)
-                {
-                    Settings.NoWheelSlide = wheelSlide;
-                    if (wheelSlide)
-                        enableNoWheelSlide();
-                    else
-                        disableNoWheelSlide();
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                bool unlimitedResources = GUILayout.Toggle(Settings.UnlimitedResources, "Unlimited Resources");
-                if (unlimitedResources != Settings.UnlimitedResources)
-                {
-                    Settings.UnlimitedResources = unlimitedResources;
-                    if (unlimitedResources)
-                        enableUnlimitedResources();
-                    else
-                        disableUnlimitedResources();
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                bool derail = GUILayout.Toggle(Settings.DisableDerailment, "No Derailment");
-                if (derail != Settings.DisableDerailment)
-                {
-                    Settings.DisableDerailment = derail;
-                    if (derail)
-                        enableNoDerail();
-                    else
-                        disableNoDerail();
-                }
-                GUILayout.EndHorizontal();
-            }
-            GUILayout.EndVertical();
-
-            GUILayout.BeginVertical(GUI.skin.box);
-            {
-                GUILayout.Label("Cheats", centeredLabel);
-                GUILayout.BeginHorizontal();
-                bool remoteDE6 = GUILayout.Toggle(Settings.RemoteControlDE6, "Remote Controller for DE6");
-                if (remoteDE6 != Settings.RemoteControlDE6)
-                {
-                    Settings.RemoteControlDE6 = remoteDE6;
-                    if (remoteDE6)
-                        enableDE6Remote();
-                    else
-                        disableDE6Remote();
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                bool commsSpawner = GUILayout.Toggle(Settings.CommsRadioSpawner, "Comms Radio Spawner");
-                if (commsSpawner != Settings.CommsRadioSpawner)
-                {
-                    Settings.CommsRadioSpawner = commsSpawner;
-                    if (commsSpawner)
-                        enableCommsSpawner();
-                    else
-                        disableCommsSpawner();
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                bool freeCaboose = GUILayout.Toggle(Settings.FreeCaboose, "Free Caboose");
-                if (freeCaboose != Settings.FreeCaboose)
-                {
-                    Settings.FreeCaboose = freeCaboose;
-                    if (freeCaboose)
-                        enableFreeCaboose();
-                    else
-                        disableFreeCaboose();
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                bool freeRerail = GUILayout.Toggle(Settings.FreeRerail, "Free Rerail");
-                if (freeRerail != Settings.FreeRerail)
-                {
-                    Settings.FreeRerail = freeRerail;
-                    if (freeRerail)
-                        enableFreeRerail();
-                    else
-                        disableFreeRerail();
-                }
-                GUILayout.EndHorizontal();
-                GUILayout.BeginHorizontal();
-                bool freeClear = GUILayout.Toggle(Settings.FreeClear, "Free Clear/Delete");
-                if (freeClear != Settings.FreeClear)
-                {
-                    Settings.FreeClear = freeClear;
-                    if (freeClear)
-                        enableFreeClear();
-                    else
-                        disableFreeClear();
-                }
-                GUILayout.EndHorizontal();
-            }
-            GUILayout.EndVertical();
-            GUILayout.EndVertical();
-            ScrollRect = GUILayoutUtility.GetLastRect();
+            scrollRect = GUILayoutUtility.GetLastRect();
             GUILayout.EndScrollView();
         }
 
-        private void enableDE6Remote()
+        private void WeatherPresetWindow(int windowId)
+        {
+            weatherPreset = GUILayout.SelectionGrid(weatherPreset, WeatherDriver.Instance.Pack.presets.Select(x => x.name.Remove(0, 4)).Prepend("None").ToArray(), 1);
+            //PresetRect = GUILayoutUtility.GetLastRect();
+            if (weatherPreset != -1)
+            {
+                weatherPresetShow = false;
+                if (weatherPreset == 0)
+                    WeatherDriver.Instance.SetPreset(null);
+                else
+                    WeatherDriver.Instance.SetPreset(weatherPreset - 1);
+                weatherPreset = -1;
+            }
+        }
+
+        private void EnableDE6Remote()
         {
             if (DE6Prefab == null)
             {
@@ -349,7 +420,7 @@ namespace UtilitiesMod
             }
         }
 
-        private void disableDE6Remote()
+        private void DisableDE6Remote()
         {
             if (DE6Prefab == null)
             {
@@ -378,47 +449,47 @@ namespace UtilitiesMod
             }
         }
 
-        private void enableNoWheelslip()
+        private void EnableNoWheelslip()
         {
             Globals.G.GameParams.WheelslipAllowed = false;
         }
 
-        private void disableNoWheelslip()
+        private void DisableNoWheelslip()
         {
-            Globals.G.GameParams.WheelslipAllowed = WheelslipAllowed;
+            Globals.G.GameParams.WheelslipAllowed = originalWheelslipAllowed;
         }
 
-        private void enableNoWheelSlide()
+        private void EnableNoWheelSlide()
         {
             Globals.G.GameParams.WheelSlideAllowed = false;
         }
 
-        private void disableNoWheelSlide()
+        private void DisableNoWheelSlide()
         {
-            Globals.G.GameParams.WheelSlideAllowed = WheelSlideAllowed;
+            Globals.G.GameParams.WheelSlideAllowed = originalWheelSlideAllowed;
         }
 
-        private void enableUnlimitedResources()
+        private void EnableUnlimitedResources()
         {
             Globals.G.GameParams.ResourceConsumptionModifier = 0;
         }
 
-        private void disableUnlimitedResources()
+        private void DisableUnlimitedResources()
         {
-            Globals.G.GameParams.ResourceConsumptionModifier = ResourceConsumptionModifier;
+            Globals.G.GameParams.ResourceConsumptionModifier = originalResourceConsumptionModifier;
         }
 
-        private void enableNoDerail()
+        private void EnableNoDerail()
         {
             Globals.G.GameParams.DerailStressThreshold = float.PositiveInfinity;
         }
 
-        private void disableNoDerail()
+        private void DisableNoDerail()
         {
             Globals.G.GameParams.DerailStressThreshold = Globals.G.GameParams.defaultStressThreshold;
         }
-        
-        private void enableCommsSpawner()
+
+        private void EnableCommsSpawner()
         {
             foreach (var rc in Resources.FindObjectsOfTypeAll<CommsRadioController>())
             {
@@ -427,7 +498,7 @@ namespace UtilitiesMod
             }
         }
 
-        private void disableCommsSpawner()
+        private void DisableCommsSpawner()
         {
             foreach (var rc in Resources.FindObjectsOfTypeAll<CommsRadioController>())
             {
@@ -436,34 +507,34 @@ namespace UtilitiesMod
             }
         }
 
-        private void enableFreeCaboose()
+        private void EnableFreeCaboose()
         {
             Globals.G.GameParams.WorkTrainSummonMaxPrice = 0;
         }
 
-        private void disableFreeCaboose()
+        private void DisableFreeCaboose()
         {
-            Globals.G.GameParams.WorkTrainSummonMaxPrice = WorkTrainSummonMaxPrice;
+            Globals.G.GameParams.WorkTrainSummonMaxPrice = originalWorkTrainSummonMaxPrice;
         }
 
-        private void enableFreeRerail()
+        private void EnableFreeRerail()
         {
             Globals.G.GameParams.RerailMaxPrice = 0;
         }
 
-        private void disableFreeRerail()
+        private void DisableFreeRerail()
         {
-            Globals.G.GameParams.RerailMaxPrice = RerailMaxPrice;
+            Globals.G.GameParams.RerailMaxPrice = originalRerailMaxPrice;
         }
 
-        private void enableFreeClear()
+        private void EnableFreeClear()
         {
             Globals.G.GameParams.DeleteCarMaxPrice = 0;
         }
 
-        private void disableFreeClear()
+        private void DisableFreeClear()
         {
-            Globals.G.GameParams.DeleteCarMaxPrice = DeleteCarMaxPrice;
+            Globals.G.GameParams.DeleteCarMaxPrice = originalDeleteCarMaxPrice;
         }
 
         public static void ApplyForceToTrain(float force)
