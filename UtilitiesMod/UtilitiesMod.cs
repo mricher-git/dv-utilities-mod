@@ -82,6 +82,7 @@ namespace UtilitiesMod
 
         private void UnloadRequested()
         {
+            showGui = false;
         }
 
         private IEnumerator InitCoro()
