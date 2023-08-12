@@ -17,7 +17,7 @@ namespace UtilitiesMod
 
     public class UtilitiesMod : MonoBehaviour
     {
-        public const string Version = "1.1.0";
+        public const string Version = "1.1.1";
 
         // Cached original values
         private GameObject DE6Prefab;
@@ -50,7 +50,7 @@ namespace UtilitiesMod
             WorldStreamingInit.LoadingFinished += OnLoadingFinished;
             UnloadWatcher.UnloadRequested += UnloadRequested;
 
-            if (WorldStreamingInit.IsLoaded) OnLoadingFinished();
+            if (WorldStreamingInit.Instance && WorldStreamingInit.IsLoaded) OnLoadingFinished();
         }
 
         void OnDestroy()
@@ -73,7 +73,10 @@ namespace UtilitiesMod
             if (Settings.FreeCaboose) DisableFreeCaboose();
             if (Settings.FreeRerail) DisableFreeRerail();
             if (Settings.FreeClear) DisableFreeClear();
-        }
+
+            LockTime(false);
+            SetWeatherPreset(0);
+         }
 
         private void OnLoadingFinished()
         {
@@ -112,6 +115,13 @@ namespace UtilitiesMod
             if (Settings.FreeCaboose) EnableFreeCaboose();
             if (Settings.FreeRerail) EnableFreeRerail();
             if (Settings.FreeClear) EnableFreeClear();
+
+            if (Settings.PersistentEnvironment)
+            {
+                SetWeatherPreset(Settings.WeatherPreset);
+                SetTimeOfDay(Settings.NormalizedTOD);
+                LockTime(Settings.LockTime);
+            }
 
             yield break;
         }
@@ -340,8 +350,12 @@ namespace UtilitiesMod
                 GUILayout.BeginVertical(GUI.skin.box);
                 {
                     GUILayout.Label("Environment", centeredLabel);
+                    Settings.PersistentEnvironment = GUILayout.Toggle(Settings.PersistentEnvironment, "Persistent Settings");
+
                     GUILayout.BeginHorizontal();
-                    WeatherDriver.Instance.manager.todTime.ProgressTime = !GUILayout.Toggle(!WeatherDriver.Instance.manager.todTime.ProgressTime, "Lock Time", GUILayout.Width(80));
+                    LockTime(GUILayout.Toggle(!WeatherDriver.Instance.manager.todTime.ProgressTime, "Lock Time", GUILayout.Width(80)));
+                    Settings.LockTime = !WeatherDriver.Instance.manager.todTime.ProgressTime;
+
                     GUILayout.Label(WeatherDriver.Instance.manager.DateTime.ToString("hh:mm tt"), centeredLabel, GUILayout.ExpandWidth(true));
                     GUILayout.Space(80);
                     GUILayout.EndHorizontal();
@@ -356,9 +370,10 @@ namespace UtilitiesMod
                     GUILayout.BeginHorizontal();
                     if (GUILayout.Button("<", GUILayout.ExpandWidth(false))) WeatherDriver.Instance.manager.AdvanceTime(-3600);
                     var time = GUILayout.HorizontalSlider(WeatherDriver.Instance.manager.timeOfDay, 0f, 1f);
-                    if (time != WeatherDriver.Instance.manager.timeOfDay) WeatherDriver.Instance.manager.SetTimeOfDay(Mathf.Min(time, 1f - 1f / 1440f));
+                    if (time != WeatherDriver.Instance.manager.timeOfDay) SetTimeOfDay(time);
                     if (GUILayout.Button(">", GUILayout.ExpandWidth(false))) WeatherDriver.Instance.manager.AdvanceTime(+3600);
                     GUILayout.EndHorizontal();
+                    Settings.NormalizedTOD = WeatherDriver.Instance.manager.timeOfDay;
                     
                     GUILayout.Label("Weather Preset");
                     if (GUILayout.Button(WeatherDriver.Instance.presetOverride ? WeatherDriver.Instance.presetOverride?.name.Remove(0, 4) : "None"))
@@ -383,12 +398,28 @@ namespace UtilitiesMod
             if (weatherPreset != -1)
             {
                 weatherPresetShow = false;
-                if (weatherPreset == 0)
-                    WeatherDriver.Instance.SetPreset(null);
-                else
-                    WeatherDriver.Instance.SetPreset(weatherPreset - 1);
+                SetWeatherPreset(weatherPreset);
+                Settings.WeatherPreset = weatherPreset;
                 weatherPreset = -1;
             }
+        }
+
+        private void SetTimeOfDay(float normalizedTimeOfDay)
+        {
+            WeatherDriver.Instance.manager.SetTimeOfDay(Mathf.Min(normalizedTimeOfDay, 1f - 1f / 1440f));
+        }
+
+        private void SetWeatherPreset(int preset)
+        {
+            if (preset == 0)
+                WeatherDriver.Instance.SetPreset(null);
+            else
+                WeatherDriver.Instance.SetPreset(preset - 1);
+        }
+
+        private void LockTime(bool lockTIme)
+        {
+            WeatherDriver.Instance.manager.todTime.ProgressTime = !lockTIme;
         }
 
         private void EnableDE6Remote()

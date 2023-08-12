@@ -36,7 +36,7 @@ namespace UtilitiesMod.UMM
         }
         private static bool Unload(UnityModManager.ModEntry modEntry)
         {
-            if (Instance != null) UnityEngine.Object.Destroy(Instance);
+            if (Instance != null) UnityEngine.Object.DestroyImmediate(Instance);
             return true;
         }
 
@@ -80,6 +80,11 @@ namespace UtilitiesMod.UMM
             public bool FreeCaboose;
             public bool FreeRerail;
             public bool FreeClear;
+
+            public bool PersistentEnvironment;
+            public bool LockTime;
+            public float NormalizedTOD;
+            public int WeatherPreset;
 
             public override void Save(UnityModManager.ModEntry modEntry)
             {
