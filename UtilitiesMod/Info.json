@@ -2,7 +2,7 @@
 	"Id": "Utilities",
 	"DisplayName": "DV Utilites",
 	"Author": "Vanguard",
-	"Version": "1.1.1",
+	"Version": "1.1.2",
 	"AssemblyName": "UtilitiesMod.dll",
 	"EntryMethod": "UtilitiesMod.UMM.Loader.Main",
 	"HomePage": "https://www.nexusmods.com/derailvalley/mods/631",

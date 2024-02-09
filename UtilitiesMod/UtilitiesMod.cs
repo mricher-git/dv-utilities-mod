@@ -17,7 +17,7 @@ namespace UtilitiesMod
 
     public class UtilitiesMod : MonoBehaviour
     {
-        public const string Version = "1.1.1";
+        public const string Version = "1.1.2";
 
         // Cached original values
         private GameObject DE6Prefab;
@@ -27,6 +27,7 @@ namespace UtilitiesMod
         private float originalRerailMaxPrice;
         private float originalDeleteCarMaxPrice;
         private float originalWorkTrainSummonMaxPrice;
+        private bool originalCommsRadioCheatMode;
 
         // GUI vars
         private static readonly GUIStyle buttonStyle = new GUIStyle() { fontSize = 8 };
@@ -95,9 +96,6 @@ namespace UtilitiesMod
                 yield return null;
             }
             UMM.Loader.Log("Initializing Utilities Mod");
-            UMM.Loader.LogDebug("Rerail:" + Globals.G.GameParams.RerailMaxPrice);
-            UMM.Loader.LogDebug("Delete:" + Globals.G.GameParams.DeleteCarMaxPrice);
-            UMM.Loader.LogDebug("Rerail:" + Globals.G.GameParams.WorkTrainSummonMaxPrice);
 
             originalWheelslipAllowed = Globals.G.GameParams.WheelslipAllowed;
             originalWheelSlideAllowed = Globals.G.GameParams.WheelSlideAllowed;
@@ -105,6 +103,7 @@ namespace UtilitiesMod
             originalRerailMaxPrice = Globals.G.GameParams.RerailMaxPrice;
             originalDeleteCarMaxPrice = Globals.G.GameParams.DeleteCarMaxPrice;
             originalWorkTrainSummonMaxPrice = Globals.G.GameParams.WorkTrainSummonMaxPrice;
+            originalCommsRadioCheatMode = Globals.G.GameParams.CommsRadioCheatMode;
 
             if (Settings.NoWheelslip) EnableNoWheelslip();
             if (Settings.NoWheelSlide) EnableNoWheelSlide();
@@ -133,6 +132,8 @@ namespace UtilitiesMod
                 showGui = false;
                 return;
             }
+
+            if (!VRManager.IsVREnabled() && ScreenspaceMouse.Instance && !ScreenspaceMouse.Instance.on) return;
 
             if (GUI.Button(buttonRect, "U", new GUIStyle(GUI.skin.button) { fontSize = 10, clipping = TextClipping.Overflow})) showGui = !showGui;
 
@@ -518,20 +519,12 @@ namespace UtilitiesMod
 
         private void EnableCommsSpawner()
         {
-            foreach (var rc in Resources.FindObjectsOfTypeAll<CommsRadioController>())
-            {
-                rc.cheatModeOverride = true;
-                if (rc.gameObject.scene.name != null) rc.UpdateModesAvailability();
+            Globals.G.GameParams.CommsRadioCheatMode = true;
             }
-        }
 
         private void DisableCommsSpawner()
         {
-            foreach (var rc in Resources.FindObjectsOfTypeAll<CommsRadioController>())
-            {
-                rc.cheatModeOverride = false;
-                if (rc.gameObject.scene.name != null) rc.UpdateModesAvailability();
-            }
+            Globals.G.GameParams.CommsRadioCheatMode = originalCommsRadioCheatMode;
         }
 
         private void EnableFreeCaboose()
