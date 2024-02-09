@@ -2,6 +2,11 @@
   "Releases": [
     {
       "Id": "Utilities",
+      "Version": "1.1.2",
+      "DownloadUrl": "https://github.com/mricher-git/dv-utilities-mod/releases/download/v1.1.2/dvUtilities.zip"
+    },
+    {
+      "Id": "Utilities",
       "Version": "1.1.1",
       "DownloadUrl": "https://github.com/mricher-git/dv-utilities-mod/releases/download/v1.1.1/dvUtilities.zip"
     },
