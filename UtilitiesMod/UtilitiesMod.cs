@@ -213,7 +213,11 @@ namespace UtilitiesMod
                     {
                         Globals.G.Types.garages.ForEach(delegate (GarageType_v2 g)
                         {
-                            SingletonBehaviour<LicenseManager>.Instance.UnlockGarage(g);
+                            var v1 = g.v1;
+                            if (v1 == Garage.Bob || v1 == Garage.Caboose || v1 == Garage.DE6_Slug || v1 == Garage.DM1U)
+                            {
+                                SingletonBehaviour<LicenseManager>.Instance.UnlockGarage(g);
+                            }
                         });
                     }
                 }
